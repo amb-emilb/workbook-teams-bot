@@ -1,0 +1,67 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.16",
+    "version": "1.0.0",
+    "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+    "developer": {
+        "name": "Ambition",
+        "websiteUrl": "https://ambition.dk",
+        "privacyUrl": "https://ambition.dk/privacy",
+        "termsOfUseUrl": "https://ambition.dk/terms"
+    },
+    "icons": {
+        "color": "icon-color.png",
+        "outline": "icon-outline.png"
+    },
+    "name": {
+        "short": "Workbook Assistant",
+        "full": "Workbook CRM and Project Management Assistant"
+    },
+    "description": {
+        "short": "AI assistant for Workbook CRM with advanced analytics and automation.",
+        "full": "Advanced AI assistant for the Workbook CRM and project management system. Features include resource search, geographic analysis, data quality assessment, bulk operations, portfolio analysis, enhanced exports, and comprehensive business intelligence. Connected to development environment for safe testing."
+    },
+    "accentColor": "#FFFFFF",
+    "bots": [
+        {
+            "botId": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+            "scopes": [
+                "personal",
+                "team",
+                "groupchat"
+            ],
+            "supportsFiles": true,
+            "isNotificationOnly": false,
+            "supportsCalling": false,
+            "supportsVideo": false
+        }
+    ],
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": [
+        "ambition.dk",
+        "ambitiondemo.workbook.net"
+    ],
+    "webApplicationInfo": {
+        "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+        "resource": "https://graph.microsoft.com/"
+    },
+    "showLoadingIndicator": true,
+    "isFullScreen": false,
+    "activities": {
+        "activityTypes": [
+            {
+                "type": "workbook-search",
+                "description": "Search Workbook resources",
+                "templateText": "Found {itemCount} resources matching '{query}'"
+            },
+            {
+                "type": "workbook-analysis",
+                "description": "Workbook data analysis",
+                "templateText": "Completed {analysisType} analysis with {resultCount} insights"
+            }
+        ]
+    }
+}

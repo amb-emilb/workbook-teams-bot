@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Workbook Assistant Icon Color -->
+    <rect width="192" height="192" rx="24" fill="#0078D4"/>
+    
+    <!-- Book/Database Symbol -->
+    <rect x="48" y="48" width="96" height="72" rx="6" fill="white"/>
+    <rect x="54" y="54" width="84" height="60" rx="3" fill="#0078D4"/>
+    
+    <!-- Data Lines -->
+    <rect x="60" y="66" width="72" height="4" fill="white"/>
+    <rect x="60" y="78" width="72" height="4" fill="white"/>
+    <rect x="60" y="90" width="72" height="4" fill="white"/>
+    <rect x="60" y="102" width="48" height="4" fill="white"/>
+    
+    <!-- AI/Analytics Symbol -->
+    <circle cx="144" cy="144" r="18" fill="#FFB900"/>
+    <circle cx="144" cy="144" r="6" fill="white"/>
+    
+    <!-- Connection Lines -->
+    <line x1="126" y1="126" x2="138" y2="138" stroke="white" stroke-width="3"/>
+    <line x1="150" y1="138" x2="162" y2="126" stroke="white" stroke-width="3"/>
+</svg>
