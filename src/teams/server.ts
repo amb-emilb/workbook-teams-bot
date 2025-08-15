@@ -27,7 +27,7 @@ initializeTelemetry();
  * Initialize server with Key Vault secrets
  */
 async function initializeServer() {
-    console.log('🔐 Initializing server with Key Vault secrets...');
+    console.log('Initializing server with Key Vault secrets...');
     
     try {
         // Get Microsoft Bot credentials from Key Vault
@@ -44,7 +44,7 @@ async function initializeServer() {
 
         // Error handler for the adapter
         adapter.onTurnError = async (context, error) => {
-            console.error('❌ Bot Framework Adapter Error:', error);
+            console.error('Bot Framework Adapter Error:', error);
             
             // Track exception in Application Insights
             trackException(error as Error, {
@@ -57,7 +57,7 @@ async function initializeServer() {
             await context.sendActivity('Sorry, I encountered an error processing your request.');
             
             // Log the error details
-            console.error('🔍 Error details:', {
+            console.error('Error details:', {
                 message: error.message,
                 stack: error.stack,
                 activity: context.activity
@@ -69,7 +69,7 @@ async function initializeServer() {
 
         return { adapter, teamsApp };
     } catch (error) {
-        console.error('❌ Failed to initialize server:', error);
+        console.error('Failed to initialize server:', error);
         throw error;
     }
 }
@@ -106,7 +106,7 @@ async function startServer() {
 
         // Bot Framework messages endpoint
         server.post('/api/messages', async (req, res) => {
-            console.log('📥 Incoming bot message:', req.body?.type || 'unknown');
+            console.log('Incoming bot message:', req.body?.type || 'unknown');
             
             await adapter.process(req, res, async (context) => {
                 // Route the request to our Teams AI application
@@ -124,21 +124,21 @@ async function startServer() {
         const port = process.env.PORT || 3978;
 
         server.listen(port, () => {
-            console.log('🚀 Workbook Teams Bot Server Started');
+            console.log('Workbook Teams Bot Server Started');
             console.log('='.repeat(50));
-            console.log(`📡 Server listening on port: ${port}`);
-            console.log(`🏥 Health check: http://localhost:${port}/health`);
-            console.log(`🤖 Bot endpoint: http://localhost:${port}/api/messages`);
-            console.log(`🔗 Production URL: https://workbook-teams-bot.azurewebsites.net`);
+            console.log(`Server listening on port: ${port}`);
+            console.log(`Health check: http://localhost:${port}/health`);
+            console.log(`Bot endpoint: http://localhost:${port}/api/messages`);
+            console.log(`Production URL: https://workbook-teams-bot.azurewebsites.net`);
             console.log('='.repeat(50));
-            console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
-            console.log('🔐 Credentials: Loaded from Azure Key Vault');
+            console.log('Environment:', process.env.NODE_ENV || 'development');
+            console.log('Credentials: Loaded from Azure Key Vault');
             console.log('='.repeat(50));
         });
 
         return server;
     } catch (error) {
-        console.error('❌ Failed to start server:', error);
+        console.error('Failed to start server:', error);
         process.exit(1);
     }
 }

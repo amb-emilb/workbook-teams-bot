@@ -20,7 +20,7 @@ export function initializeTelemetry(): void {
     const connectionString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
     
     if (!connectionString) {
-        console.warn('⚠️ Application Insights connection string not found. Telemetry disabled.');
+        console.warn('Application Insights connection string not found. Telemetry disabled.');
         return;
     }
 
@@ -48,9 +48,9 @@ export function initializeTelemetry(): void {
         telemetryClient.context.tags[telemetryClient.context.keys.cloudRole] = 'WorkbookTeamsBot';
         
         isInitialized = true;
-        console.log('✅ Application Insights initialized');
+        console.log('Application Insights initialized');
     } catch (error) {
-        console.error('❌ Failed to initialize Application Insights:', error);
+        console.error('Failed to initialize Application Insights:', error);
     }
 }
 
@@ -213,7 +213,7 @@ export function trackSecurityEvent(eventType: string, details: Record<string, an
     });
 
     // Log to console for immediate visibility
-    console.warn(`🔒 Security Event: ${eventType}`, details);
+    console.warn(`Security Event: ${eventType}`, details);
 }
 
 /**
@@ -226,7 +226,7 @@ export async function flushTelemetry(): Promise<void> {
 
     return new Promise((resolve) => {
         telemetryClient!.flush();
-        console.log('✅ Telemetry flushed');
+        console.log('Telemetry flushed');
         resolve();
     });
 }

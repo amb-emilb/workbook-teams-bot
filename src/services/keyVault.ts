@@ -7,9 +7,13 @@ import { SecretClient } from '@azure/keyvault-secrets';
  */
 class KeyVaultService {
     private client: SecretClient;
-    private keyVaultUrl = 'https://workbook-bot-kv-3821.vault.azure.net/';
+    private keyVaultUrl: string;
 
     constructor() {
+        // Get Key Vault name from environment variable set by ARM template
+        const keyVaultName = process.env.KEY_VAULT_NAME || 'workbook-bot-kv-3821';
+        this.keyVaultUrl = `https://${keyVaultName}.vault.azure.net/`;
+        
         // Use DefaultAzureCredential which works both locally (with Azure CLI) 
         // and in production (with Managed Identity)
         const credential = new DefaultAzureCredential();
@@ -21,17 +25,17 @@ class KeyVaultService {
      */
     async getSecret(secretName: string): Promise<string> {
         try {
-            console.log(`🔐 Retrieving secret: ${secretName}`);
+            console.log(`Retrieving secret: ${secretName}`);
             const secret = await this.client.getSecret(secretName);
             
             if (!secret.value) {
                 throw new Error(`Secret ${secretName} has no value`);
             }
             
-            console.log(`✅ Successfully retrieved secret: ${secretName}`);
+            console.log(`Successfully retrieved secret: ${secretName}`);
             return secret.value;
         } catch (error) {
-            console.error(`❌ Failed to retrieve secret ${secretName}:`, error);
+            console.error(`Failed to retrieve secret ${secretName}:`, error);
             throw new Error(`Failed to retrieve secret ${secretName}: ${error}`);
         }
     }

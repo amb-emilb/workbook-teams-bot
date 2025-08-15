@@ -7,5 +7,5 @@
 
 import './server.js';
 
-console.log('🤖 Workbook Teams Bot initialized');
-console.log('🔗 Ready to bridge Mastra agent to Microsoft Teams');
+console.log('Workbook Teams Bot initialized');
+console.log('Ready to bridge Mastra agent to Microsoft Teams');

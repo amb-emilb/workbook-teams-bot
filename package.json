@@ -4,7 +4,7 @@
     "type":  "module",
     "main":  "index.js",
     "scripts":  {
-                    "start":  "node dist/src/teams/index.js",
+                    "start":  "node dist/teams/index.js",
                     "teams":  "tsx src/teams/index.ts",
                     "teams:dev":  "tsx watch src/teams/index.ts",
                     "dev":  "tsx watch src/index.ts",

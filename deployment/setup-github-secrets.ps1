@@ -93,7 +93,23 @@ if ($LASTEXITCODE -eq 0) {
 # Clear the plain text password from memory immediately
 $BotAppPasswordPlain = $null
 
-Write-Host "⚠️ Bot credentials are now available to GitHub Actions" -ForegroundColor Yellow
+# Set OpenAI API key from .env file
+Write-Host "🤖 Setting OpenAI API key..." -ForegroundColor Yellow
+$envContent = Get-Content ".env" -ErrorAction SilentlyContinue
+$openaiKey = ($envContent | Where-Object { $_ -match "OPENAI_API_KEY=" }) -replace "OPENAI_API_KEY=", ""
+
+if ($openaiKey) {
+    gh secret set OPENAI_API_KEY --body $openaiKey --repo $RepositoryName
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ OPENAI_API_KEY secret set" -ForegroundColor Green
+    } else {
+        Write-Host "❌ Failed to set OPENAI_API_KEY secret" -ForegroundColor Red
+    }
+} else {
+    Write-Host "⚠️ OPENAI_API_KEY not found in .env file" -ForegroundColor Yellow
+}
+
+Write-Host "⚠️ All credentials are now available to GitHub Actions" -ForegroundColor Yellow
 
 # Set environment-specific variables
 Write-Host "🌍 Setting environment variables..." -ForegroundColor Yellow
