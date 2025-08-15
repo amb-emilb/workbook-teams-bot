@@ -1,8 +1,11 @@
-import { agent } from '../src/agent/workbookAgent.js';
+import { createWorkbookAgent } from '../src/agent/workbookAgent.js';
 
 async function testAgent() {
   try {
     console.log('🤖 Testing Mastra agent...');
+    
+    // Initialize agent with Key Vault
+    const agent = await createWorkbookAgent();
     
     // Correct Mastra agent.generate() usage
     const response = await agent.generate('Hello! Can you introduce yourself?');

@@ -4,11 +4,16 @@ import { WorkbookClient, Resource } from '../../services/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface ValidationError {
+  path: (string | number)[];
+  message: string;
+}
+
 /**
  * Create enhanced Export Tool for multi-format data export
  * Factory function that accepts initialized WorkbookClient
  */
-export function createEnhancedExportTool(workbookClient: WorkbookClient) {
+export function createEnhancedExportTool(workbookClient: WorkbookClient): ReturnType<typeof createTool> {
   return createTool({
   id: 'enhanced-export',
   description: `Export Workbook data in multiple formats with advanced customization. Use this tool to:
@@ -100,9 +105,10 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
     
     try {
       // Validate input against schema
-      const validationResult = enhancedExportTool.inputSchema.safeParse(context);
-      if (!validationResult.success) {
-        const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const exportTool = createEnhancedExportTool(workbookClient);
+      const validationResult = exportTool.inputSchema?.safeParse(context);
+      if (!validationResult?.success) {
+        const errors = validationResult?.error?.errors?.map((e: ValidationError) => `${e.path.join('.')}: ${e.message}`).join(', ') || 'Validation failed';
         return {
           success: false,
           format: context.format || 'unknown',

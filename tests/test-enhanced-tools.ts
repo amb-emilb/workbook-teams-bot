@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { agent } from '../src/agent/workbookAgent.js';
+import { createWorkbookAgent } from '../src/agent/workbookAgent.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -30,6 +30,9 @@ async function testEnhancedTools() {
   log(`Starting comprehensive tests at ${new Date().toISOString()}`);
   log(`Log file: ${path.resolve(logFile)}`);
   log('');
+  
+  // Create agent for testing
+  const agent = await createWorkbookAgent();
   
   try {
   

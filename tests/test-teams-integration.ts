@@ -1,4 +1,4 @@
-import { teamsApp } from '../src/teams/teamsBot.js';
+import { createConfiguredTeamsBot } from '../src/teams/teamsBot.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -17,6 +17,7 @@ async function testTeamsIntegration() {
     try {
         // Test 1: Verify app initialization
         console.log('\n📱 TEST 1: Teams App Initialization');
+        const teamsApp = await createConfiguredTeamsBot();
         console.log('✅ Teams app initialized successfully');
         console.log('📊 App configuration:');
         console.log(`   - Storage: ${teamsApp.options.storage ? 'Configured' : 'Missing'}`);
@@ -80,7 +81,7 @@ async function testTeamsIntegration() {
                 console.log('❌ Teams manifest not found');
             }
         } catch (error) {
-            console.log('❌ Error reading Teams manifest:', error.message);
+            console.log('❌ Error reading Teams manifest:', error instanceof Error ? error.message : 'Unknown error');
         }
 
         // Test Summary

@@ -1,0 +1,106 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.16",
+    "version": "1.0.0",
+    "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+    "developer": {
+        "name": "Ambition",
+        "websiteUrl": "https://ambition.dk",
+        "privacyUrl": "https://ambition.dk/privacy",
+        "termsOfUseUrl": "https://ambition.dk/terms"
+    },
+    "icons": {
+        "color": "icon-color.png",
+        "outline": "icon-outline.png"
+    },
+    "name": {
+        "short": "Workbook Assistant",
+        "full": "Workbook CRM and Project Management Assistant"
+    },
+    "description": {
+        "short": "AI assistant for Workbook CRM with advanced analytics and automation.",
+        "full": "Advanced AI assistant for the Workbook CRM and project management system. Features include resource search, geographic analysis, data quality assessment, bulk operations, portfolio analysis, enhanced exports, and comprehensive business intelligence."
+    },
+    "accentColor": "#FFFFFF",
+    "bots": [
+        {
+            "botId": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+            "scopes": [
+                "personal",
+                "team",
+                "groupchat"
+            ],
+            "commandLists": [
+                {
+                    "scopes": ["personal", "team", "groupchat"],
+                    "commands": [
+                        {
+                            "title": "search",
+                            "description": "Search for Workbook resources, companies, or employees"
+                        },
+                        {
+                            "title": "analyze",
+                            "description": "Analyze data quality, portfolios, or geographic distribution"
+                        },
+                        {
+                            "title": "export",
+                            "description": "Export data in various formats (CSV, JSON, reports)"
+                        },
+                        {
+                            "title": "help",
+                            "description": "Get help with available commands and features"
+                        }
+                    ]
+                }
+            ],
+            "supportsFiles": true,
+            "isNotificationOnly": false,
+            "supportsCalling": false,
+            "supportsVideo": false
+        }
+    ],
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": [
+        "workbook-teams-bot.azurewebsites.net",
+        "ambition.dk",
+        "ambitiondemo.workbook.net",
+        "*.workbook.net"
+    ],
+    "webApplicationInfo": {
+        "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+        "resource": "api://workbook-teams-bot.azurewebsites.net/7fd95cab-54ac-43b4-8c33-36e598d94a07"
+    },
+    "showLoadingIndicator": true,
+    "isFullScreen": false,
+    "activities": {
+        "activityTypes": [
+            {
+                "type": "workbook-search",
+                "description": "Search Workbook resources",
+                "templateText": "Found {itemCount} resources matching '{query}'"
+            },
+            {
+                "type": "workbook-analysis",
+                "description": "Workbook data analysis",
+                "templateText": "Completed {analysisType} analysis with {resultCount} insights"
+            },
+            {
+                "type": "workbook-export",
+                "description": "Data export operation",
+                "templateText": "Exported {recordCount} records to {format} format"
+            }
+        ]
+    },
+    "localizationInfo": {
+        "defaultLanguageTag": "en",
+        "additionalLanguages": [
+            {
+                "languageTag": "da",
+                "file": "da.json"
+            }
+        ]
+    }
+}

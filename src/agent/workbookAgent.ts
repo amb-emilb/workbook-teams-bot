@@ -1,5 +1,5 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { keyVaultService } from '../services/keyVault.js';
 
 /**
@@ -11,6 +11,11 @@ export async function createWorkbookAgent() {
   
   // Get OpenAI API key from Key Vault
   const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
+  
+  // Create OpenAI provider with Key Vault API key
+  const openaiProvider = createOpenAI({
+    apiKey: openaiApiKey
+  });
   
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
@@ -84,10 +89,8 @@ export async function createWorkbookAgent() {
 
 Format responses clearly with structured data. Offer to drill deeper or perform related analyses. Be proactive in suggesting relevant tools based on the user's needs.`,
 
-    model: openai('gpt-4-turbo', {
-      apiKey: openaiApiKey
-    }),
-    tools: tools.getAllTools()
+    model: openaiProvider('gpt-4-turbo'),
+    tools: await tools.getAllTools() as any // Type assertion to satisfy Mastra's ToolsInput while preserving our type safety
   });
 
   console.log('✅ Workbook agent initialized with Key Vault configuration');

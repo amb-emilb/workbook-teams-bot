@@ -2,7 +2,11 @@ import {
     Application, 
     ActionPlanner,
     PromptManager,
-    OpenAIModel
+    OpenAIModel,
+    TurnState,
+    DefaultConversationState,
+    DefaultUserState,
+    DefaultTempState
 } from '@microsoft/teams-ai';
 import { MemoryStorage, TurnContext } from 'botbuilder';
 import * as path from 'path';
@@ -14,6 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { keyVaultService } from '../services/keyVault.js';
+import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -41,7 +46,7 @@ async function initializeTeamsBot() {
         // Get OpenAI API key from Key Vault
         const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
         
-        // Create OpenAI model for Teams AI
+        // Create OpenAI model for Teams AI (using Teams AI SDK pattern)
         const model = new OpenAIModel({
             apiKey: openaiApiKey,
             defaultModel: 'gpt-4o-mini',
@@ -53,7 +58,7 @@ async function initializeTeamsBot() {
         if (!fs.existsSync(promptsPath)) {
             fs.mkdirSync(promptsPath, { recursive: true });
         }
-        const promptManager = new PromptManager(promptsPath);
+        const promptManager = new PromptManager({ promptsFolder: promptsPath });
 
         // Create AI planner with prompt manager
         const configuredPlanner = new ActionPlanner({
@@ -73,10 +78,7 @@ async function initializeTeamsBot() {
  * Application Turn State
  * Simple turn state for our Workbook context
  */
-interface WorkbookTurnState {
-    conversation: any;
-    user: any;
-    temp: any;
+interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultUserState, DefaultTempState> {
     workbookContext?: {
         lastQuery?: string;
         lastResults?: any;
@@ -95,12 +97,11 @@ export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> 
         ai: {
             planner
         },
-        turnStateFactory: () => ({
-            conversation: {},
-            user: {},
-            temp: {},
-            workbookContext: {}
-        })
+        turnStateFactory: () => {
+            const state = new TurnState<DefaultConversationState, DefaultUserState, DefaultTempState>();
+            (state as any).workbookContext = {};
+            return state as WorkbookTurnState;
+        }
     });
 }
 
@@ -122,9 +123,28 @@ async function executeMastraAgent(message: string) {
             cachedWorkbookAgent = await createWorkbookAgent();
         }
 
-        // Execute our existing Mastra agent
+        // SECURITY: Input validation and sanitization
+        // Check for prompt injection attempts
+        if (detectPromptInjection(message)) {
+            console.warn('⚠️ Potential prompt injection detected:', message);
+            return 'Your request contains invalid patterns. Please rephrase your query.';
+        }
+
+        // Sanitize the input
+        const sanitizedMessage = sanitizeInput(message);
+        
+        // Validate if it's a search query
+        const queryValidation = validateSearchQuery(sanitizedMessage);
+        if (!queryValidation.valid) {
+            console.warn('❌ Invalid query:', queryValidation.error);
+            return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
+        }
+
+        console.log('✅ Input validated and sanitized');
+
+        // Execute our existing Mastra agent with sanitized input
         const response = await cachedWorkbookAgent.run({
-            messages: [{ role: 'user', content: message }]
+            messages: [{ role: 'user', content: queryValidation.sanitized }]
         });
 
         // Extract the response text
@@ -150,7 +170,7 @@ async function executeMastraAgent(message: string) {
  */
 export async function configureTeamsBotHandlers(app: Application<WorkbookTurnState>) {
     // Handle all messages by bridging to our Mastra agent
-    app.message(async (context, state) => {
+    app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
         const message = context.activity.text || '';
         
         if (!message.trim()) {
@@ -186,13 +206,12 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
         await context.sendActivity('Action received and processed.');
     });
 
-    // Add logging for debugging
-    app.turn(async (context, next) => {
+    // Add logging for debugging - using conversationUpdate as a generic activity handler
+    app.conversationUpdate('membersAdded', async (context: TurnContext, state: WorkbookTurnState) => {
         console.log(`🔄 Processing activity: ${context.activity.type}`);
         if (context.activity.text) {
             console.log(`📝 Message: "${context.activity.text}"`);
         }
-        await next();
     });
 }
 

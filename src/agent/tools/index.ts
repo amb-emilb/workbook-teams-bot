@@ -7,7 +7,7 @@ import { WorkbookClient } from '../../services/workbookClient.js';
 
 let toolsInitialized = false;
 let workbookClient: WorkbookClient;
-let allTools: any = {};
+let allTools: Record<string, any> = {};
 
 /**
  * Initialize WorkbookClient and all tools with Key Vault

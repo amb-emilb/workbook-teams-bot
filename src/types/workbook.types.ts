@@ -155,3 +155,15 @@ export interface ServiceResponse<T = unknown> {
   error?: string;
   cached?: boolean;
 }
+
+
+// Validation Types
+export interface ValidationResult {
+  valid: boolean;
+  sanitized: string;
+  error?: string;
+}
+
+export interface ToolParameters {
+  [key: string]: string | number | boolean | string[] | number[] | boolean[] | ToolParameters;
+}

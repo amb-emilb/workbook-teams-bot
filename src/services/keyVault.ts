@@ -7,7 +7,7 @@ import { SecretClient } from '@azure/keyvault-secrets';
  */
 class KeyVaultService {
     private client: SecretClient;
-    private keyVaultUrl = 'https://workbook-bot-keyvault.vault.azure.net/';
+    private keyVaultUrl = 'https://workbook-bot-kv-3821.vault.azure.net/';
 
     constructor() {
         // Use DefaultAzureCredential which works both locally (with Azure CLI) 

@@ -2,6 +2,7 @@ import * as restify from 'restify';
 import { BotFrameworkAdapter } from 'botbuilder';
 import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
+import { initializeTelemetry, trackEvent, trackException, flushTelemetry } from '../utils/telemetry.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -11,6 +12,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
+
+// Initialize Application Insights
+initializeTelemetry();
 
 /**
  * Teams Bot Server
@@ -41,6 +45,13 @@ async function initializeServer() {
         // Error handler for the adapter
         adapter.onTurnError = async (context, error) => {
             console.error('❌ Bot Framework Adapter Error:', error);
+            
+            // Track exception in Application Insights
+            trackException(error as Error, {
+                activityType: context.activity?.type,
+                userId: context.activity?.from?.id,
+                conversationId: context.activity?.conversation?.id
+            });
             
             // Send a message to the user
             await context.sendActivity('Sorry, I encountered an error processing your request.');

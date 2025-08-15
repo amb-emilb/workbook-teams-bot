@@ -2,11 +2,35 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 
+interface ValidationError {
+  path: (string | number)[];
+  message: string;
+}
+
+interface CountryData {
+  name: string;
+  count: number;
+  cities: CityData[];
+  percentage: number;
+}
+
+interface CityData {
+  name: string;
+  count: number;
+}
+
+interface LocationCluster {
+  center: string;
+  radius: number;
+  count: number;
+  resources: string[];
+}
+
 /**
  * Create geographic Analysis Tool for location-based filtering and insights
  * Factory function that accepts initialized WorkbookClient
  */
-export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
+export function createGeographicAnalysisTool(workbookClient: WorkbookClient): ReturnType<typeof createTool> {
   return createTool({
   id: 'geographic-analysis',
   description: `Analyze geographic distribution and location patterns in Workbook data. Use this tool to:
@@ -166,9 +190,10 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
     
     try {
       // Validate input against schema
-      const validationResult = geographicAnalysisTool.inputSchema.safeParse(context);
-      if (!validationResult.success) {
-        const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+      const geoTool = createGeographicAnalysisTool(workbookClient);
+      const validationResult = geoTool.inputSchema?.safeParse(context);
+      if (!validationResult?.success) {
+        const errors = validationResult?.error?.errors?.map((e: ValidationError) => `${e.path.join('.')}: ${e.message}`).join(', ') || 'Validation failed';
         return {
           success: false,
           analysisType: context.analysisType || 'unknown',
@@ -178,7 +203,12 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
           clusters: [],
           insights: [`❌ Input validation failed: ${errors}`],
           recommendations: [],
-          mapVisualization: `Error: ${errors}`
+          mapVisualization: `Error: ${errors}`,
+          metrics: {
+            regionalBalance: 0,
+            concentrationIndex: 0
+          },
+          executionTime: `${Date.now() - startTime}ms`
         };
       }
       
@@ -224,7 +254,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
       // Filter by geographic scope
       if (countries && countries.length > 0) {
         resources = resources.filter(r => 
-          r.Country && countries.some(country => 
+          r.Country && countries.some((country: string) => 
             r.Country!.toLowerCase().includes(country.toLowerCase())
           )
         );
@@ -232,7 +262,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
       
       if (cities && cities.length > 0) {
         resources = resources.filter(r => 
-          r.City && cities.some(city => 
+          r.City && cities.some((city: string) => 
             r.City!.toLowerCase().includes(city.toLowerCase())
           )
         );
@@ -242,7 +272,11 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
       const locationDistribution = generateLocationDistribution(resources);
       
       // Generate analysis based on type
-      let clusters, coverage, metrics, recommendations;
+      let clusters, coverage, recommendations;
+      let metrics = {
+        regionalBalance: 0,
+        concentrationIndex: 0
+      };
       
       switch (analysisType) {
         case 'clustering':
