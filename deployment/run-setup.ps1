@@ -1,2 +1,2 @@
 $securePassword = ConvertTo-SecureString "h.Y8Q~GZJ2GBD_cCBdlx9qD9~77t0WpIyawMPdzs" -AsPlainText -Force
-.\setup-github-secrets.ps1 -RepositoryName "EmilOtteBrok/workbook-teams-agent" -BotAppId "f076c31d-88e0-4d99-9b3f-e91016e1972c" -BotAppPassword $securePassword
+.\setup-github-secrets.ps1 -RepositoryName "amb-emilb/workbook-teams-bot" -BotAppId "f076c31d-88e0-4d99-9b3f-e91016e1972c" -BotAppPassword $securePassword
