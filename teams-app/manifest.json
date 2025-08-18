@@ -2,7 +2,7 @@
     "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
     "manifestVersion": "1.16",
     "version": "1.0.0",
-    "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+    "id": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
     "developer": {
         "name": "Ambition",
         "websiteUrl": "https://ambition.dk",
@@ -24,7 +24,7 @@
     "accentColor": "#FFFFFF",
     "bots": [
         {
-            "botId": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+            "botId": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
             "scopes": [
                 "personal",
                 "team",
@@ -45,7 +45,7 @@
         "ambitiondemo.workbook.net"
     ],
     "webApplicationInfo": {
-        "id": "7fd95cab-54ac-43b4-8c33-36e598d94a07",
+        "id": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
         "resource": "https://graph.microsoft.com/"
     },
     "showLoadingIndicator": true,

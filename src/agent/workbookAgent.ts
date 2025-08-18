@@ -69,9 +69,10 @@ export async function createWorkbookAgent() {
 - Generate performance reports and alerts
 
 ### For Bulk Operations:
-- Always use preview mode first with bulk-operations
-- Confirm changes with the user before executing
-- Clear explanation of what will be changed
+- **ALWAYS show preview first** - destructive operations (deactivate, updateEmail, updateFolder) affecting multiple resources automatically require confirmation
+- **Ask for explicit user confirmation** before executing any bulk changes
+- **Show clear summary**: "About to deactivate 15 companies. Type 'confirm' to proceed."
+- **Two-step process**: 1) Preview → 2) User confirms → 3) Execute
 
 ### Best Practices:
 1. Start with universal-search for most queries - it adapts to the query type

@@ -360,7 +360,7 @@ jobs:
         az monitor app-insights component update \
           --app workbook-bot-insights \
           --resource-group ${{ vars.RESOURCE_GROUP }} \
-          --set retentionInDays=90
+          --retention-time 90
       continue-on-error: true
 
   security-scan:

@@ -2,10 +2,11 @@ import NodeCache from 'node-cache';
 import { CacheConfig } from '../../types/workbook.types.js';
 
 // Default cache configuration (in seconds)
+// Increased TTL for testing to reduce token consumption
 const DEFAULT_CONFIG: CacheConfig = {
-  contactsTTL: 300,   // 5 minutes
-  jobsTTL: 60,        // 1 minute
-  resourcesTTL: 300   // 5 minutes
+  contactsTTL: 900,   // 15 minutes (increased from 5)
+  jobsTTL: 300,       // 5 minutes (increased from 1)
+  resourcesTTL: 900   // 15 minutes (increased from 5)
 };
 
 class CacheManager {
@@ -13,9 +14,17 @@ class CacheManager {
   private config: CacheConfig;
 
   constructor(config?: Partial<CacheConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    // Use longer TTL for testing to reduce API calls and token consumption
+    const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'dev';
+    const testConfig = isTestEnvironment ? {
+      contactsTTL: 1800,   // 30 minutes for testing
+      jobsTTL: 600,        // 10 minutes for testing  
+      resourcesTTL: 1800   // 30 minutes for testing
+    } : {};
     
-    // Initialize NodeCache with default TTL of 5 minutes
+    this.config = { ...DEFAULT_CONFIG, ...testConfig, ...config };
+    
+    // Initialize NodeCache with extended TTL for testing
     this.cache = new NodeCache({
       stdTTL: this.config.contactsTTL,
       checkperiod: 60, // Check for expired keys every 60 seconds

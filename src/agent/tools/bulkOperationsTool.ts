@@ -76,8 +76,13 @@ export function createBulkOperationsTool(workbookClient: WorkbookClient) {
           confirmationRequired = false,
           searchCriteria 
         } = context;
+
+        // Auto-require confirmation for destructive operations affecting multiple resources
+        const isDestructiveOperation = ['deactivate', 'updateEmail', 'updateFolder'].includes(operation);
+        const willAffectMultiple = resourceIds.length > 1 || searchCriteria;
+        const needsConfirmation = confirmationRequired || (isDestructiveOperation && willAffectMultiple);
       
-        console.log(`🔧 Starting bulk operation: ${operation}`);
+        console.log(`🔧 Starting bulk operation: ${operation}${needsConfirmation ? ' (confirmation required)' : ''}`);
       
         // Get target resource IDs
         let targetIds = resourceIds;
@@ -174,7 +179,7 @@ export function createBulkOperationsTool(workbookClient: WorkbookClient) {
         });
       
         // If preview mode or confirmation required, return preview
-        if (operation === 'preview' || confirmationRequired) {
+        if (operation === 'preview' || needsConfirmation) {
           return {
             operation,
             targetCount: validResources.length,

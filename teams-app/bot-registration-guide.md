@@ -1,121 +1,122 @@
-# Bot Framework Registration Guide
+# Azure Bot Service Registration Guide
 
 ## Overview
 
-To connect our Teams bot to Microsoft Teams, we need to register it with Azure Bot Framework. This gives us the required IDs and credentials.
+The Workbook Teams Bot is already deployed to Azure with complete Bot Framework integration. This guide documents the Azure-based architecture and configuration.
 
-## Step-by-Step Registration
+## Current Azure Deployment
 
-### 1. Azure Bot Framework Registration
+### Azure Resources
+- **App Service**: `workbook-teams-bot.azurewebsites.net`
+- **Bot Service**: Bot Framework registration complete
+- **Key Vault**: `workbook-bot-kv-3821.vault.azure.net`
+- **Application Insights**: `workbook-bot-insights`
+- **Resource Group**: `workbook-teams-westeurope`
 
-**Go to**: https://dev.botframework.com/
+### Bot Configuration
+- **Bot ID**: `f076c31d-88e0-4d99-9b3f-e91016e1972c`
+- **Messaging Endpoint**: `https://workbook-teams-bot.azurewebsites.net/api/messages`
+- **Authentication**: Microsoft App ID and Password configured via Key Vault
 
-**Create new bot registration:**
-1. Click "Create a Bot"
-2. Choose "Register an existing bot built using Bot Framework SDK v4"
+## Key Vault Integration
 
-**Fill out the form:**
-- **Display name**: `Workbook Assistant`
-- **Bot handle**: `workbook-assistant-bot` (must be unique)
-- **Description**: `AI assistant for Workbook CRM with advanced analytics`
-- **Messaging endpoint**: `https://41b50d323059.ngrok-free.app/api/messages`
-- **Microsoft App ID**: Leave blank (will be auto-generated)
+All bot credentials are securely stored in Azure Key Vault:
 
-### 2. Configure App Registration
-
-After creating the bot, you'll get:
-- **Microsoft App ID**: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
-- **Microsoft App Password**: Auto-generated secret
-
-**Important**: Copy these values immediately and securely!
-
-### 3. Update Environment Variables
-
-Add to your `.env` file:
-```env
-MICROSOFT_APP_ID=your-app-id-here
-MICROSOFT_APP_PASSWORD=your-app-password-here
+```
+Required Secrets:
+- microsoft-app-id: Bot Framework App ID
+- microsoft-app-password: Bot Framework App Password  
+- openai-api-key: OpenAI GPT-4 API key
+- workbook-api-key-dev: Workbook API key for development
+- workbook-api-key-prod: Workbook API key for production
+- workbook-password-dev: Workbook password for development
+- workbook-password-prod: Workbook password for production
 ```
 
-### 4. Update Teams Manifest
+## Production Architecture
 
-Replace the placeholder IDs in `manifest.json`:
-```json
-{
-  "id": "your-app-id-here",
-  "bots": [
-    {
-      "botId": "your-app-id-here"
-    }
-  ],
-  "webApplicationInfo": {
-    "id": "your-app-id-here"
-  }
-}
-```
+### Security Features
+- **Managed Identity**: App Service uses managed identity for Key Vault access
+- **HTTPS Enforcement**: All communication secured with TLS
+- **Bot Framework Authentication**: Messages authenticated via Bot Framework
+- **Input Validation**: Comprehensive validation and sanitization
 
-### 5. Configure Channels
+### Monitoring & Logging
+- **Application Insights**: Telemetry and performance monitoring
+- **Structured Logging**: JSON-formatted logs for Azure Log Analytics
+- **Health Checks**: `/health` endpoint for service monitoring
 
-In the Bot Framework portal:
-1. Go to your bot's "Channels" section
-2. Click "Microsoft Teams"
-3. Configure settings:
-   - **Calling**: Disabled
-   - **Groups and Teams**: Enabled
-   - **1 on 1 chat**: Enabled
+## Teams Channel Configuration
 
-### 6. Test Connection
+The bot is configured for Microsoft Teams with the following capabilities:
+- **Personal Chat**: 1:1 conversations
+- **Team Chat**: Group conversations in Teams channels
+- **Group Chat**: Multi-user group conversations
+- **File Handling**: Upload/download support
+- **Rich Cards**: Adaptive Cards and interactive elements
 
-1. **Start the bot**: `npm run teams`
-2. **Keep ngrok running**: The tunnel must be active
-3. **Test endpoint**: Visit `https://41b50d323059.ngrok-free.app/health`
-4. **Check Bot Framework**: Test in the portal's Web Chat
+## Testing and Verification
 
-## Troubleshooting
-
-### Common Issues
-
-**❌ Bot not responding**
-- Check ngrok is running and tunneling to port 3978
-- Verify messaging endpoint URL is correct
-- Check app ID and password in .env file
-
-**❌ Authentication errors**
-- Regenerate app password in Azure
-- Check for typos in .env file
-- Ensure app ID matches in manifest and .env
-
-**❌ Teams integration not working**
-- Verify Teams channel is enabled
-- Check manifest.json has correct app ID
-- Ensure icons are properly sized PNG files
-
-### Log Analysis
-
-Check bot server logs for errors:
+### Health Check
 ```bash
-npm run teams
-# Look for authentication and routing errors
+curl https://workbook-teams-bot.azurewebsites.net/health
+# Expected: {"status": "healthy", "timestamp": "..."}
 ```
 
-## Security Notes
+### Bot Framework Endpoint
+```bash
+curl https://workbook-teams-bot.azurewebsites.net/api/messages
+# Expected: HTTP 405 Method Not Allowed (correct for GET requests)
+```
 
-- **Never commit** app passwords to git
-- **Use Azure Key Vault** for production secrets
-- **Rotate passwords** regularly
-- **Monitor usage** in Azure portal
+### Key Vault Access
+- All 7 required secrets are accessible from the application
+- No environment variable fallbacks needed
+- Managed identity authentication working
 
-## Production Deployment
+## Deployment Pipeline
 
-For production:
-1. **Deploy to Azure App Service** or similar
-2. **Use HTTPS domain** instead of ngrok
-3. **Configure proper authentication**
-4. **Set up monitoring and logging**
-5. **Update manifest** with production URLs
+The bot is deployed via GitHub Actions with the following process:
 
-## Support Resources
+1. **Build**: TypeScript compilation, tests, security audit
+2. **Infrastructure**: ARM template deployment to Azure
+3. **Secrets**: Key Vault population from GitHub secrets
+4. **Application**: Code deployment to App Service
+5. **Verification**: Health checks and endpoint testing
 
-- **Bot Framework Docs**: https://docs.microsoft.com/en-us/azure/bot-service/
-- **Teams App Development**: https://docs.microsoft.com/en-us/microsoftteams/platform/
-- **Teams AI Library**: https://github.com/microsoft/teams-ai
+## Teams App Package
+
+### Manifests
+- `manifest.json`: Development configuration
+- `manifest.production.json`: Production configuration with enhanced features
+
+### Icons
+- `icon-color.png`: 192x192px color icon
+- `icon-outline.png`: 32x32px outline icon
+
+Both manifests now use the correct bot ID: `f076c31d-88e0-4d99-9b3f-e91016e1972c`
+
+## Production Support
+
+### Monitoring
+- Application Insights dashboard in Azure Portal
+- Real-time performance metrics and error tracking
+- Automated alerts for critical issues
+
+### Troubleshooting
+- Structured logging available in Log Analytics
+- Health endpoint for service status verification
+- Key Vault access logs for authentication issues
+
+### Updates and Maintenance
+- GitHub Actions CI/CD for automated deployments
+- Infrastructure as Code via ARM templates
+- Secure secret rotation via Key Vault
+
+## Security Compliance
+
+- **Data Protection**: No sensitive data logged or stored inappropriately
+- **Authentication**: Multi-layer authentication via Bot Framework and Azure
+- **Authorization**: Managed identity and role-based access control
+- **Monitoring**: Comprehensive audit logging and monitoring
+- **Secrets Management**: Secure storage in Azure Key Vault with proper access policies
