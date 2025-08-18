@@ -42,3 +42,7 @@ coverage/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Test files (keep local only)
+tests/
+exports/

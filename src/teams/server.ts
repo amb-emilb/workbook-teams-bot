@@ -137,7 +137,7 @@ async function startServer() {
             healthCheck.checks.botCredentials = { status: 'error', message: 'Missing bot credentials' };
             healthCheck.status = 'degraded';
           }
-        } catch (error) {
+        } catch {
           healthCheck.checks.botCredentials = { status: 'error', message: 'Cannot access bot credentials' };
           healthCheck.status = 'degraded';
         }
@@ -155,12 +155,12 @@ async function startServer() {
       } catch (error) {
         console.error('Health check error:', error);
         healthCheck.status = 'error';
-        healthCheck.checks.keyVault = { status: 'error', message: `Health check failed: ${error.message}` };
+        healthCheck.checks.keyVault = { status: 'error', message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
       }
 
       // Set appropriate HTTP status code
       const statusCode = healthCheck.status === 'healthy' ? 200 : 
-                        healthCheck.status === 'degraded' ? 200 : 503;
+        healthCheck.status === 'degraded' ? 200 : 503;
       
       res.status(statusCode);
       res.json(healthCheck);

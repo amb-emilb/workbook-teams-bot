@@ -250,7 +250,7 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
           generateReport,
           detailLevel,
           action // Legacy parameter
-        } = context as any;
+        } = context as Record<string, unknown>;
         
         // Map legacy action parameter to monitoringType
         const monitoringType = rawMonitoringType || legacyActionMap[action] || 'real-time';
