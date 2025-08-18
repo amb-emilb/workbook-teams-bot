@@ -175,6 +175,7 @@ jobs:
             appServiceName=${{ vars.AZURE_WEBAPP_NAME }} \
             keyVaultName=${{ vars.KEY_VAULT_NAME }} \
             botAppId=${{ secrets.MICROSOFT_APP_ID }} \
+            botAppPassword=${{ secrets.MICROSOFT_APP_PASSWORD }} \
             deploymentPrincipalId="$CURRENT_PRINCIPAL_ID" \
           --output json)
         
@@ -248,19 +249,15 @@ jobs:
           exit 1
         fi
         
-    - name: Configure App Settings
+    - name: Verify App Settings
       run: |
-        echo "Configuring App Service settings..."
-        az webapp config appsettings set \
+        echo "Verifying App Service settings..."
+        az webapp config appsettings list \
           --resource-group ${{ vars.RESOURCE_GROUP }} \
           --name ${{ vars.AZURE_WEBAPP_NAME }} \
-          --settings \
-            MICROSOFT_APP_ID="${{ secrets.MICROSOFT_APP_ID }}" \
-            MICROSOFT_APP_PASSWORD="${{ secrets.MICROSOFT_APP_PASSWORD }}" \
-            KEY_VAULT_NAME="${{ vars.KEY_VAULT_NAME }}" \
-            NODE_ENV=dev \
-            PORT=3978
-        echo "✅ App settings configured"
+          --query "[].{name:name, value:value}" \
+          --output table
+        echo "✅ App settings verified"
         
     - name: Deploy to production
       uses: azure/webapps-deploy@v2

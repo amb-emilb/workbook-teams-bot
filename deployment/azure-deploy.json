@@ -43,6 +43,12 @@
         "description": "Microsoft App ID for the bot"
       }
     },
+    "botAppPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Microsoft App Password for the bot"
+      }
+    },
     "tenantId": {
       "type": "string",
       "defaultValue": "[subscription().tenantId]",
@@ -156,6 +162,14 @@
             {
               "name": "WEBSITE_NODE_DEFAULT_VERSION",
               "value": "~20"
+            },
+            {
+              "name": "MICROSOFT_APP_ID",
+              "value": "[parameters('botAppId')]"
+            },
+            {
+              "name": "MICROSOFT_APP_PASSWORD",
+              "value": "[parameters('botAppPassword')]"
             }
           ],
           "nodeVersion": "20-lts",
