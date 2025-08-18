@@ -93,78 +93,80 @@ async function startServer() {
     server.use(restify.plugins.queryParser());
 
     // Health check endpoint with Key Vault connectivity test
-    server.get('/health', async (req, res, next) => {
-      const healthCheck = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        service: 'Workbook Teams Bot',
-        version: '1.0.0',
-        environment: process.env.NODE_ENV || 'development',
-        checks: {
-          keyVault: { status: 'unknown', message: '' },
-          botCredentials: { status: 'unknown', message: '' },
-          openai: { status: 'unknown', message: '' }
-        }
-      };
+    server.get('/health', (req, res, next) => {
+      (async () => {
+        const healthCheck = {
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          service: 'Workbook Teams Bot',
+          version: '1.0.0',
+          environment: process.env.NODE_ENV || 'development',
+          checks: {
+            keyVault: { status: 'unknown', message: '' },
+            botCredentials: { status: 'unknown', message: '' },
+            openai: { status: 'unknown', message: '' }
+          }
+        };
 
-      try {
-        // Test Key Vault connectivity
-        console.log('Health check: Testing Key Vault connectivity...');
-        
-        // Test if we can access Key Vault secrets
-        const keyVaultTest = await keyVaultService.getSecret('openai-api-key').catch(error => {
-          console.error('Key Vault health check failed:', error);
-          return null;
-        });
-        
-        if (keyVaultTest) {
-          healthCheck.checks.keyVault = { status: 'healthy', message: 'Key Vault accessible' };
-        } else {
-          healthCheck.checks.keyVault = { status: 'error', message: 'Cannot access Key Vault secrets' };
-          healthCheck.status = 'degraded';
-        }
-
-        // Test bot credentials availability
         try {
-          const botCredentialsTest = await Promise.all([
-            keyVaultService.getSecret('microsoft-app-id').catch(() => null),
-            keyVaultService.getSecret('microsoft-app-password').catch(() => null)
-          ]);
+          // Test Key Vault connectivity
+          console.log('Health check: Testing Key Vault connectivity...');
           
-          if (botCredentialsTest[0] && botCredentialsTest[1]) {
-            healthCheck.checks.botCredentials = { status: 'healthy', message: 'Bot credentials available' };
+          // Test if we can access Key Vault secrets
+          const keyVaultTest = await keyVaultService.getSecret('openai-api-key').catch(error => {
+            console.error('Key Vault health check failed:', error);
+            return null;
+          });
+          
+          if (keyVaultTest) {
+            healthCheck.checks.keyVault = { status: 'healthy', message: 'Key Vault accessible' };
           } else {
-            healthCheck.checks.botCredentials = { status: 'error', message: 'Missing bot credentials' };
+            healthCheck.checks.keyVault = { status: 'error', message: 'Cannot access Key Vault secrets' };
             healthCheck.status = 'degraded';
           }
-        } catch {
-          healthCheck.checks.botCredentials = { status: 'error', message: 'Cannot access bot credentials' };
-          healthCheck.status = 'degraded';
+
+          // Test bot credentials availability
+          try {
+            const botCredentialsTest = await Promise.all([
+              keyVaultService.getSecret('microsoft-app-id').catch(() => null),
+              keyVaultService.getSecret('microsoft-app-password').catch(() => null)
+            ]);
+            
+            if (botCredentialsTest[0] && botCredentialsTest[1]) {
+              healthCheck.checks.botCredentials = { status: 'healthy', message: 'Bot credentials available' };
+            } else {
+              healthCheck.checks.botCredentials = { status: 'error', message: 'Missing bot credentials' };
+              healthCheck.status = 'degraded';
+            }
+          } catch {
+            healthCheck.checks.botCredentials = { status: 'error', message: 'Cannot access bot credentials' };
+            healthCheck.status = 'degraded';
+          }
+
+          // Test OpenAI API key availability
+          if (keyVaultTest) {
+            healthCheck.checks.openai = { status: 'healthy', message: 'OpenAI API key available' };
+          } else {
+            healthCheck.checks.openai = { status: 'error', message: 'OpenAI API key not available' };
+            healthCheck.status = 'degraded';
+          }
+
+          console.log('Health check completed:', healthCheck.status);
+          
+        } catch (error) {
+          console.error('Health check error:', error);
+          healthCheck.status = 'error';
+          healthCheck.checks.keyVault = { status: 'error', message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
         }
 
-        // Test OpenAI API key availability
-        if (keyVaultTest) {
-          healthCheck.checks.openai = { status: 'healthy', message: 'OpenAI API key available' };
-        } else {
-          healthCheck.checks.openai = { status: 'error', message: 'OpenAI API key not available' };
-          healthCheck.status = 'degraded';
-        }
-
-        console.log('Health check completed:', healthCheck.status);
+        // Set appropriate HTTP status code
+        const statusCode = healthCheck.status === 'healthy' ? 200 : 
+          healthCheck.status === 'degraded' ? 200 : 503;
         
-      } catch (error) {
-        console.error('Health check error:', error);
-        healthCheck.status = 'error';
-        healthCheck.checks.keyVault = { status: 'error', message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
-      }
-
-      // Set appropriate HTTP status code
-      const statusCode = healthCheck.status === 'healthy' ? 200 : 
-        healthCheck.status === 'degraded' ? 200 : 503;
-      
-      res.status(statusCode);
-      res.json(healthCheck);
-      return next();
+        res.status(statusCode);
+        res.json(healthCheck);
+        return next();
+      })();
     });
 
     // Bot Framework messages endpoint

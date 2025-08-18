@@ -238,12 +238,54 @@ jobs:
           fi
         done
         
-        # Verify secret was set
-        SECRET_CHECK=$(az keyvault secret show --vault-name ${{ vars.KEY_VAULT_NAME }} --name "openai-api-key" --query "id" --output tsv 2>/dev/null || echo "FAILED")
-        if [ "$SECRET_CHECK" = "FAILED" ]; then
-          echo "::error::Failed to configure Key Vault secrets"
-          exit 1
-        fi
+        # Configure all required secrets
+        echo "Setting Microsoft Bot credentials..."
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "microsoft-app-id" \
+          --value "${{ secrets.MICROSOFT_APP_ID }}" > /dev/null
+        
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "microsoft-app-password" \
+          --value "${{ secrets.MICROSOFT_APP_PASSWORD }}" > /dev/null
+        
+        echo "Setting Workbook API credentials..."
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "workbook-api-key-dev" \
+          --value "${{ secrets.WORKBOOK_API_KEY_DEV }}" > /dev/null
+        
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "workbook-api-key-prod" \
+          --value "${{ secrets.WORKBOOK_API_KEY_PROD }}" > /dev/null
+        
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "workbook-password-dev" \
+          --value "${{ secrets.WORKBOOK_PASSWORD_DEV }}" > /dev/null
+        
+        az keyvault secret set \
+          --vault-name ${{ vars.KEY_VAULT_NAME }} \
+          --name "workbook-password-prod" \
+          --value "${{ secrets.WORKBOOK_PASSWORD_PROD }}" > /dev/null
+        
+        echo "✅ All secrets configured successfully"
+        
+        # Verify all critical secrets were set
+        REQUIRED_SECRETS=("openai-api-key" "microsoft-app-id" "microsoft-app-password" "workbook-api-key-dev" "workbook-api-key-prod" "workbook-password-dev" "workbook-password-prod")
+        
+        echo "Verifying all required secrets..."
+        for secret in "${REQUIRED_SECRETS[@]}"; do
+          SECRET_CHECK=$(az keyvault secret show --vault-name ${{ vars.KEY_VAULT_NAME }} --name "$secret" --query "id" --output tsv 2>/dev/null || echo "FAILED")
+          if [ "$SECRET_CHECK" = "FAILED" ]; then
+            echo "::error::Failed to configure secret: $secret"
+            exit 1
+          else
+            echo "✅ Secret verified: $secret"
+          fi
+        done
         
     - name: Verify App Settings
       run: |
