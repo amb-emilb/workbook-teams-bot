@@ -49,6 +49,13 @@
       "metadata": {
         "description": "Azure AD Tenant ID for SingleTenant bot authentication"
       }
+    },
+    "deploymentPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Object ID of the service principal used for deployment (GitHub Actions)"
+      }
     }
   },
   "variables": {
@@ -179,7 +186,43 @@
             }
           }
         ]
-      }
+      },
+      "condition": "[empty(parameters('deploymentPrincipalId'))]"
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/accessPolicies",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(parameters('keyVaultName'), '/add')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+        "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
+      ],
+      "properties": {
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(resourceId('Microsoft.Web/sites', parameters('appServiceName')), '2022-03-01', 'Full').identity.principalId]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list"
+              ]
+            }
+          },
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[parameters('deploymentPrincipalId')]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list",
+                "set"
+              ]
+            }
+          }
+        ]
+      },
+      "condition": "[not(empty(parameters('deploymentPrincipalId')))]"
     },
     {
       "type": "Microsoft.BotService/botServices",

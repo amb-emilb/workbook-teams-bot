@@ -160,6 +160,13 @@ jobs:
       run: |
         echo "Starting ARM template deployment..."
         
+        # Get current service principal object ID for Key Vault access
+        CURRENT_PRINCIPAL_ID=$(az ad signed-in-user show --query id --output tsv 2>/dev/null || \
+                              az account show --query user.name --output tsv | xargs az ad sp show --id | jq -r .id 2>/dev/null || \
+                              echo "")
+        
+        echo "Service Principal ID: $CURRENT_PRINCIPAL_ID"
+        
         # Run deployment with full JSON output for error diagnostics
         DEPLOYMENT_RESULT=$(az deployment group create \
           --resource-group ${{ vars.RESOURCE_GROUP }} \
@@ -168,6 +175,7 @@ jobs:
             appServiceName=${{ vars.AZURE_WEBAPP_NAME }} \
             keyVaultName=${{ vars.KEY_VAULT_NAME }} \
             botAppId=${{ secrets.MICROSOFT_APP_ID }} \
+            deploymentPrincipalId="$CURRENT_PRINCIPAL_ID" \
           --output json)
         
         # Extract deployment status
