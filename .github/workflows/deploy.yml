@@ -64,10 +64,6 @@ jobs:
           exit 1
         fi
         
-        if [ ! -d "teams-app" ]; then
-          echo "::error::teams-app directory not found"
-          exit 1
-        fi
         
         # Verify critical files in dist directory
         if [ ! -f "dist/src/teams/index.js" ]; then
@@ -76,8 +72,8 @@ jobs:
         fi
         
         # Create deployment package
-        echo "Packaging files: dist, package.json, package-lock.json, teams-app"
-        zip -r deploy.zip dist package.json package-lock.json teams-app
+        echo "Packaging files: dist, package.json, package-lock.json"
+        zip -r deploy.zip dist package.json package-lock.json
         
         # Verify package was created
         if [ ! -f "deploy.zip" ]; then

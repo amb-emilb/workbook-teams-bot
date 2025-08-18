@@ -170,6 +170,14 @@
             {
               "name": "MICROSOFT_APP_PASSWORD",
               "value": "[parameters('botAppPassword')]"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "ENABLE_ORYX_BUILD",
+              "value": "true"
             }
           ],
           "nodeVersion": "20-lts",
