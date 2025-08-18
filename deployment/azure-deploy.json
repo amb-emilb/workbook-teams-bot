@@ -197,7 +197,7 @@
         "endpoint": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appServiceName'))).defaultHostName, '/api/messages')]",
         "msaAppId": "[parameters('botAppId')]",
         "msaAppType": "SingleTenant",
-        "tenantId": "[parameters('tenantId')]",
+        "msaAppTenantId": "[parameters('tenantId')]",
         "luisAppIds": [],
         "schemaTransformationVersion": "1.3",
         "isCmekEnabled": false,
