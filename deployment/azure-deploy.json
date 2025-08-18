@@ -42,6 +42,13 @@
       "metadata": {
         "description": "Microsoft App ID for the bot"
       }
+    },
+    "tenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Azure AD Tenant ID for SingleTenant bot authentication"
+      }
     }
   },
   "variables": {
@@ -190,6 +197,7 @@
         "endpoint": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appServiceName'))).defaultHostName, '/api/messages')]",
         "msaAppId": "[parameters('botAppId')]",
         "msaAppType": "SingleTenant",
+        "tenantId": "[parameters('tenantId')]",
         "luisAppIds": [],
         "schemaTransformationVersion": "1.3",
         "isCmekEnabled": false,
