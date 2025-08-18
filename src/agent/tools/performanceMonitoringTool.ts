@@ -253,7 +253,7 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
         } = context as Record<string, unknown>;
         
         // Map legacy action parameter to monitoringType
-        const monitoringType = rawMonitoringType || legacyActionMap[action] || 'real-time';
+        const monitoringType = (rawMonitoringType as string) || legacyActionMap[action as string] || 'real-time';
 
         // Get current system metrics (pass workbookClient for API health check)
         const currentMetrics = await getCurrentMetrics(workbookClient);
@@ -261,7 +261,7 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
         // Generate historical trends if requested
         let trends;
         if (monitoringType === 'historical' || detailLevel === 'comprehensive') {
-          trends = generateHistoricalTrends(timeRange);
+          trends = generateHistoricalTrends(timeRange as string);
         }
       
         // Analyze tool usage if requested
@@ -271,7 +271,7 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
         }
       
         // Check for performance alerts
-        const alerts = checkPerformanceAlerts(currentMetrics, alertThresholds);
+        const alerts = checkPerformanceAlerts(currentMetrics, alertThresholds as AlertThresholds | undefined);
       
         // Generate optimization recommendations
         let recommendations;
