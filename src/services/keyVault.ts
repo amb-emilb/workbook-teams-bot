@@ -22,21 +22,21 @@ class KeyVaultService {
 
   /**
      * Get a secret value from Key Vault or environment variables
-     * Falls back to environment variables in development mode
+     * Falls back to environment variables when Key Vault is unavailable
      */
   async getSecret(secretName: string): Promise<string> {
     // Map secret names to environment variable names
     const envVarMapping: Record<string, string> = {
       'openai-api-key': 'OPENAI_API_KEY',
-      'microsoft-app-id': 'BotAppId',
-      'microsoft-app-password': 'BotAppPassword',
+      'microsoft-app-id': 'MICROSOFT_APP_ID',
+      'microsoft-app-password': 'MICROSOFT_APP_PASSWORD',
       'workbook-api-key-dev': 'WORKBOOK_API_KEY_DEV',
       'workbook-api-key-prod': 'WORKBOOK_API_KEY_PROD',
       'workbook-password-dev': 'WORKBOOK_PASSWORD_DEV',
       'workbook-password-prod': 'WORKBOOK_PASSWORD_PROD'
     };
 
-    // In development mode or when Key Vault is unavailable, use environment variables
+    // In local development mode, prefer environment variables
     const isLocalDev = process.env.NODE_ENV === 'dev' && process.env.OPENAI_API_KEY;
     
     if (isLocalDev && envVarMapping[secretName]) {
@@ -60,7 +60,7 @@ class KeyVaultService {
       console.log(`Successfully retrieved secret from Key Vault: ${secretName}`);
       return secret.value;
     } catch (error) {
-      // If Key Vault fails and we have a fallback env var, use it
+      // Always fall back to environment variables if Key Vault fails
       if (envVarMapping[secretName]) {
         const envVar = envVarMapping[secretName];
         const envValue = process.env[envVar];
