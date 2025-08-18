@@ -4,7 +4,6 @@
 export * from './job.types.js';
 export * from './billing.types.js';
 export * from './analytics.types.js';
-export * from './tool-results.js';
 
 // Resource interface matches actual API response from ResourcesRequest
 // Resources represent all people in Workbook (employees, clients, contacts)
