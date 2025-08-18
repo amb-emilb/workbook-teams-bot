@@ -70,8 +70,8 @@ jobs:
         fi
         
         # Verify critical files in dist directory
-        if [ ! -f "dist/teams/index.js" ]; then
-          echo "::error::Main application file dist/teams/index.js not found"
+        if [ ! -f "dist/src/teams/index.js" ]; then
+          echo "::error::Main application file dist/src/teams/index.js not found"
           exit 1
         fi
         
