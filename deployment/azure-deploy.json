@@ -189,6 +189,7 @@
         "iconUrl": "https://docs.botframework.com/static/devportal/client/images/bot-framework-default.png",
         "endpoint": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appServiceName'))).defaultHostName, '/api/messages')]",
         "msaAppId": "[parameters('botAppId')]",
+        "msaAppType": "SingleTenant",
         "luisAppIds": [],
         "schemaTransformationVersion": "1.3",
         "isCmekEnabled": false,
