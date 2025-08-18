@@ -1,39 +1,17 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { WorkbookClient, Resource } from '../../services/index.js';
+import { WorkbookClient, Resource, ToolParameters } from '../../services/index.js';
 
-interface ValidationError {
-  path: (string | number)[];
-  message: string;
-}
 
-interface CountryData {
-  name: string;
-  count: number;
-  cities: CityData[];
-  percentage: number;
-}
-
-interface CityData {
-  name: string;
-  count: number;
-}
-
-interface LocationCluster {
-  center: string;
-  radius: number;
-  count: number;
-  resources: string[];
-}
 
 /**
  * Create geographic Analysis Tool for location-based filtering and insights
  * Factory function that accepts initialized WorkbookClient
  */
-export function createGeographicAnalysisTool(workbookClient: WorkbookClient): ReturnType<typeof createTool> {
+export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   return createTool({
-  id: 'geographic-analysis',
-  description: `Analyze geographic distribution and location patterns in Workbook data. Use this tool to:
+    id: 'geographic-analysis',
+    description: `Analyze geographic distribution and location patterns in Workbook data. Use this tool to:
   - Analyze geographic distribution of resources and contacts
   - Identify location clustering and regional patterns
   - Find location-based coverage gaps
@@ -42,325 +20,304 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient): Re
   
   Provides comprehensive geographic intelligence for business optimization.`,
   
-  inputSchema: z.object({
-    analysisType: z.enum([
-      'distribution', 
-      'clustering', 
-      'coverage', 
-      'territory', 
-      'travel-optimization',
-      'regional-performance'
-    ])
-      .default('distribution')
-      .describe('Type of geographic analysis to perform'),
+    inputSchema: z.object({
+      analysisType: z.enum([
+        'distribution', 
+        'clustering', 
+        'coverage', 
+        'territory', 
+        'travel-optimization',
+        'regional-performance'
+      ])
+        .default('distribution')
+        .describe('Type of geographic analysis to perform'),
     
-    // Geographic scope
-    countries: z.array(z.string())
-      .optional()
-      .describe('Limit analysis to specific countries'),
-    cities: z.array(z.string())
-      .optional()
-      .describe('Limit analysis to specific cities'),
-    regions: z.array(z.string())
-      .optional()
-      .describe('Custom regions to analyze'),
+      // Geographic scope
+      countries: z.array(z.string())
+        .optional()
+        .describe('Limit analysis to specific countries'),
+      cities: z.array(z.string())
+        .optional()
+        .describe('Limit analysis to specific cities'),
+      regions: z.array(z.string())
+        .optional()
+        .describe('Custom regions to analyze'),
     
-    // Resource filtering
-    resourceTypes: z.array(z.number())
-      .optional()
-      .describe('Filter by resource types (2=Employee, 10=Contact)'),
-    active: z.boolean()
-      .default(true)
-      .describe('Include only active resources'),
-    includeEmployees: z.boolean()
-      .default(true)
-      .describe('Include employees in analysis'),
-    includeContacts: z.boolean()
-      .default(true)
-      .describe('Include contacts in analysis'),
+      // Resource filtering
+      resourceTypes: z.array(z.number())
+        .optional()
+        .describe('Filter by resource types (2=Employee, 10=Contact)'),
+      active: z.boolean()
+        .default(true)
+        .describe('Include only active resources'),
+      includeEmployees: z.boolean()
+        .default(true)
+        .describe('Include employees in analysis'),
+      includeContacts: z.boolean()
+        .default(true)
+        .describe('Include contacts in analysis'),
     
-    // Analysis parameters
-    clusterRadius: z.number()
-      .min(1)
-      .max(500)
-      .default(50)
-      .describe('Clustering radius in kilometers (for clustering analysis)'),
-    minClusterSize: z.number()
-      .min(2)
-      .max(50)
-      .default(5)
-      .describe('Minimum size for location clusters'),
+      // Analysis parameters
+      clusterRadius: z.number()
+        .min(1)
+        .max(500)
+        .default(50)
+        .describe('Clustering radius in kilometers (for clustering analysis)'),
+      minClusterSize: z.number()
+        .min(2)
+        .max(50)
+        .default(5)
+        .describe('Minimum size for location clusters'),
     
-    // Output options
-    includeMap: z.boolean()
-      .default(false)
-      .describe('Include ASCII map visualization (basic)'),
-    includeRecommendations: z.boolean()
-      .default(true)
-      .describe('Include strategic recommendations'),
-    detailLevel: z.enum(['summary', 'detailed', 'comprehensive'])
-      .default('detailed')
-      .describe('Level of detail in analysis output'),
+      // Output options
+      includeMap: z.boolean()
+        .default(false)
+        .describe('Include ASCII map visualization (basic)'),
+      includeRecommendations: z.boolean()
+        .default(true)
+        .describe('Include strategic recommendations'),
+      detailLevel: z.enum(['summary', 'detailed', 'comprehensive'])
+        .default('detailed')
+        .describe('Level of detail in analysis output'),
     
-    // Territory optimization
-    territoryCount: z.number()
-      .min(2)
-      .max(20)
-      .optional()
-      .describe('Number of territories to suggest (for territory analysis)')
-  }),
+      // Territory optimization
+      territoryCount: z.number()
+        .min(2)
+        .max(20)
+        .optional()
+        .describe('Number of territories to suggest (for territory analysis)')
+    }),
   
-  outputSchema: z.object({
-    success: z.boolean(),
-    analysisType: z.string(),
-    totalResources: z.number(),
-    analysisDate: z.string(),
+    outputSchema: z.object({
+      success: z.boolean(),
+      analysisType: z.string(),
+      totalResources: z.number(),
+      analysisDate: z.string(),
     
-    // Geographic distribution
-    locationDistribution: z.object({
-      countries: z.array(z.object({
-        name: z.string(),
-        count: z.number(),
-        percentage: z.number(),
-        cities: z.array(z.object({
+      // Geographic distribution
+      locationDistribution: z.object({
+        countries: z.array(z.object({
           name: z.string(),
-          count: z.number()
+          count: z.number(),
+          percentage: z.number(),
+          cities: z.array(z.object({
+            name: z.string(),
+            count: z.number()
+          }))
+        })),
+        topCities: z.array(z.object({
+          name: z.string(),
+          country: z.string(),
+          count: z.number(),
+          percentage: z.number()
         }))
-      })),
-      topCities: z.array(z.object({
-        name: z.string(),
-        country: z.string(),
-        count: z.number(),
-        percentage: z.number()
-      }))
+      }),
+    
+      // Clustering analysis
+      clusters: z.array(z.object({
+        id: z.string(),
+        centerLocation: z.string(),
+        size: z.number(),
+        radius: z.number(),
+        density: z.number(),
+        members: z.array(z.object({
+          id: z.number(),
+          name: z.string(),
+          location: z.string()
+        }))
+      })).optional(),
+    
+      // Coverage analysis
+      coverage: z.object({
+        coveredLocations: z.number(),
+        uncoveredRegions: z.array(z.string()),
+        coverageGaps: z.array(z.object({
+          region: z.string(),
+          importance: z.enum(['high', 'medium', 'low']),
+          reason: z.string()
+        })),
+        recommendedExpansions: z.array(z.string())
+      }).optional(),
+    
+      // Performance metrics
+      metrics: z.object({
+        averageDistance: z.number().optional(),
+        travelOptimizationScore: z.number().optional(),
+        regionalBalance: z.number(),
+        concentrationIndex: z.number()
+      }),
+    
+      // Recommendations
+      recommendations: z.array(z.object({
+        type: z.enum(['territory', 'travel', 'coverage', 'efficiency']),
+        priority: z.enum(['high', 'medium', 'low']),
+        title: z.string(),
+        description: z.string(),
+        impact: z.string()
+      })).optional(),
+    
+      // Visualizations
+      mapVisualization: z.string().optional(),
+      insights: z.array(z.string()),
+      executionTime: z.string()
     }),
-    
-    // Clustering analysis
-    clusters: z.array(z.object({
-      id: z.string(),
-      centerLocation: z.string(),
-      size: z.number(),
-      radius: z.number(),
-      density: z.number(),
-      members: z.array(z.object({
-        id: z.number(),
-        name: z.string(),
-        location: z.string()
-      }))
-    })).optional(),
-    
-    // Coverage analysis
-    coverage: z.object({
-      coveredLocations: z.number(),
-      uncoveredRegions: z.array(z.string()),
-      coverageGaps: z.array(z.object({
-        region: z.string(),
-        importance: z.enum(['high', 'medium', 'low']),
-        reason: z.string()
-      })),
-      recommendedExpansions: z.array(z.string())
-    }).optional(),
-    
-    // Performance metrics
-    metrics: z.object({
-      averageDistance: z.number().optional(),
-      travelOptimizationScore: z.number().optional(),
-      regionalBalance: z.number(),
-      concentrationIndex: z.number()
-    }),
-    
-    // Recommendations
-    recommendations: z.array(z.object({
-      type: z.enum(['territory', 'travel', 'coverage', 'efficiency']),
-      priority: z.enum(['high', 'medium', 'low']),
-      title: z.string(),
-      description: z.string(),
-      impact: z.string()
-    })).optional(),
-    
-    // Visualizations
-    mapVisualization: z.string().optional(),
-    insights: z.array(z.string()),
-    executionTime: z.string()
-  }),
   
-  execute: async ({ context }) => {
-    const startTime = Date.now();
-    console.log('🌍 Geographic Analysis Tool - Starting analysis...', context);
+    execute: async ({ context }) => {
+      const startTime = Date.now();
+      console.log('🌍 Geographic Analysis Tool - Starting analysis...', context);
     
-    try {
-      // Validate input against schema
-      const geoTool = createGeographicAnalysisTool(workbookClient);
-      const validationResult = geoTool.inputSchema?.safeParse(context);
-      if (!validationResult?.success) {
-        const errors = validationResult?.error?.errors?.map((e: ValidationError) => `${e.path.join('.')}: ${e.message}`).join(', ') || 'Validation failed';
-        return {
-          success: false,
-          analysisType: context.analysisType || 'unknown',
-          totalResources: 0,
-          analysisDate: new Date().toISOString(),
-          locationDistribution: { countries: [], topCities: [] },
-          clusters: [],
-          insights: [`❌ Input validation failed: ${errors}`],
-          recommendations: [],
-          mapVisualization: `Error: ${errors}`,
-          metrics: {
-            regionalBalance: 0,
-            concentrationIndex: 0
-          },
-          executionTime: `${Date.now() - startTime}ms`
-        };
-      }
+      try {
+        // Context is already validated by the tool framework, no need for manual validation
+        // Just use the context directly
       
-      const {
-        analysisType,
-        countries,
-        cities,
-        resourceTypes,
-        active,
-        includeEmployees,
-        includeContacts,
-        clusterRadius,
-        minClusterSize,
-        includeMap,
-        includeRecommendations,
-        detailLevel,
-        territoryCount
-      } = validationResult.data;
+        const {
+          analysisType,
+          countries,
+          cities,
+          resourceTypes,
+          active,
+          includeEmployees,
+          includeContacts,
+          clusterRadius,
+          minClusterSize,
+          includeMap,
+          includeRecommendations,
+          territoryCount
+        } = context;
 
-      // Build search parameters
-      const searchParams: Record<string, any> = {};
-      if (resourceTypes) searchParams.ResourceType = resourceTypes;
-      if (active !== undefined) searchParams.Active = active;
+        // Build search parameters
+        const searchParams: ToolParameters = {};
+        if (resourceTypes) {searchParams.ResourceType = resourceTypes;}
+        if (active !== undefined) {searchParams.Active = active;}
 
-      // Get data from WorkbookClient
-      console.log('🔍 Fetching resources for geographic analysis...', searchParams);
-      const response = await workbookClient.resources.search(searchParams);
+        // Get data from WorkbookClient
+        console.log('🔍 Fetching resources for geographic analysis...', searchParams);
+        const response = await workbookClient.resources.search(searchParams);
       
-      if (!response.success || !response.data) {
-        throw new Error('Failed to fetch resource data');
-      }
+        if (!response.success || !response.data) {
+          throw new Error('Failed to fetch resource data');
+        }
 
-      let resources = response.data;
+        let resources = response.data;
       
-      // Filter by resource type preferences
-      if (!includeEmployees) {
-        resources = resources.filter(r => r.TypeId !== 2);
-      }
-      if (!includeContacts) {
-        resources = resources.filter(r => r.TypeId !== 10);
-      }
+        // Filter by resource type preferences
+        if (!includeEmployees) {
+          resources = resources.filter(r => r.TypeId !== 2);
+        }
+        if (!includeContacts) {
+          resources = resources.filter(r => r.TypeId !== 10);
+        }
       
-      // Filter by geographic scope
-      if (countries && countries.length > 0) {
-        resources = resources.filter(r => 
-          r.Country && countries.some((country: string) => 
+        // Filter by geographic scope
+        if (countries && countries.length > 0) {
+          resources = resources.filter(r => 
+            r.Country && countries.some((country: string) => 
             r.Country!.toLowerCase().includes(country.toLowerCase())
-          )
-        );
-      }
+            )
+          );
+        }
       
-      if (cities && cities.length > 0) {
-        resources = resources.filter(r => 
-          r.City && cities.some((city: string) => 
+        if (cities && cities.length > 0) {
+          resources = resources.filter(r => 
+            r.City && cities.some((city: string) => 
             r.City!.toLowerCase().includes(city.toLowerCase())
-          )
-        );
-      }
+            )
+          );
+        }
 
-      // Generate location distribution analysis
-      const locationDistribution = generateLocationDistribution(resources);
+        // Generate location distribution analysis
+        const locationDistribution = generateLocationDistribution(resources);
       
-      // Generate analysis based on type
-      let clusters, coverage, recommendations;
-      let metrics = {
-        regionalBalance: 0,
-        concentrationIndex: 0
-      };
+        // Generate analysis based on type
+        let clusters, coverage, recommendations;
+        let metrics = {
+          regionalBalance: 0,
+          concentrationIndex: 0
+        };
       
-      switch (analysisType) {
+        switch (analysisType) {
         case 'clustering':
           clusters = generateClusterAnalysis(resources, clusterRadius, minClusterSize);
           break;
           
         case 'coverage':
-          coverage = generateCoverageAnalysis(resources, locationDistribution);
+          coverage = generateCoverageAnalysis(resources);
           break;
           
         case 'territory':
           coverage = generateTerritoryAnalysis(resources, territoryCount);
           break;
-      }
+        }
       
-      // Calculate performance metrics
-      metrics = calculateGeographicMetrics(resources, locationDistribution);
+        // Calculate performance metrics
+        metrics = calculateGeographicMetrics(resources, locationDistribution);
       
-      // Generate recommendations if requested
-      if (includeRecommendations) {
-        recommendations = generateRecommendations(
-          analysisType, 
+        // Generate recommendations if requested
+        if (includeRecommendations) {
+          recommendations = generateRecommendations(
+            analysisType, 
+            resources, 
+            locationDistribution, 
+            clusters, 
+            coverage, 
+            metrics
+          );
+        }
+      
+        // Generate insights
+        const insights = generateInsights(
           resources, 
           locationDistribution, 
           clusters, 
           coverage, 
           metrics
         );
+      
+        // Generate map visualization if requested
+        let mapVisualization;
+        if (includeMap) {
+          mapVisualization = generateSimpleMapVisualization(locationDistribution);
+        }
+
+        const executionTime = `${Date.now() - startTime}ms`;
+      
+        console.log(`✅ Geographic analysis completed: ${resources.length} resources analyzed in ${executionTime}`);
+
+        return {
+          success: true,
+          analysisType,
+          totalResources: resources.length,
+          analysisDate: new Date().toISOString(),
+          locationDistribution,
+          clusters,
+          coverage,
+          metrics,
+          recommendations,
+          mapVisualization,
+          insights,
+          executionTime
+        };
+
+      } catch (error) {
+        console.error('❌ Geographic Analysis Tool error:', error);
+        return {
+          success: false,
+          analysisType: context.analysisType,
+          totalResources: 0,
+          analysisDate: new Date().toISOString(),
+          locationDistribution: {
+            countries: [],
+            topCities: []
+          },
+          metrics: {
+            regionalBalance: 0,
+            concentrationIndex: 0
+          },
+          insights: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+          executionTime: `${Date.now() - startTime}ms`
+        };
       }
-      
-      // Generate insights
-      const insights = generateInsights(
-        resources, 
-        locationDistribution, 
-        clusters, 
-        coverage, 
-        metrics
-      );
-      
-      // Generate map visualization if requested
-      let mapVisualization;
-      if (includeMap) {
-        mapVisualization = generateSimpleMapVisualization(locationDistribution);
-      }
-
-      const executionTime = `${Date.now() - startTime}ms`;
-      
-      console.log(`✅ Geographic analysis completed: ${resources.length} resources analyzed in ${executionTime}`);
-
-      return {
-        success: true,
-        analysisType,
-        totalResources: resources.length,
-        analysisDate: new Date().toISOString(),
-        locationDistribution,
-        clusters,
-        coverage,
-        metrics,
-        recommendations,
-        mapVisualization,
-        insights,
-        executionTime
-      };
-
-    } catch (error) {
-      console.error('❌ Geographic Analysis Tool error:', error);
-      return {
-        success: false,
-        analysisType: context.analysisType,
-        totalResources: 0,
-        analysisDate: new Date().toISOString(),
-        locationDistribution: {
-          countries: [],
-          topCities: []
-        },
-        metrics: {
-          regionalBalance: 0,
-          concentrationIndex: 0
-        },
-        insights: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        executionTime: `${Date.now() - startTime}ms`
-      };
     }
-  }
   });
 }
 
@@ -452,7 +409,7 @@ function generateClusterAnalysis(resources: Resource[], radius: number, minSize:
   return clusters;
 }
 
-function generateCoverageAnalysis(resources: Resource[], distribution: any) {
+function generateCoverageAnalysis(resources: Resource[]) {
   const coveredCountries = new Set(resources.filter(r => r.Country).map(r => r.Country));
   const coveredCities = new Set(resources.filter(r => r.City).map(r => r.City));
   
@@ -500,11 +457,16 @@ function generateTerritoryAnalysis(resources: Resource[], territoryCount?: numbe
   };
 }
 
-function calculateGeographicMetrics(resources: Resource[], distribution: any) {
+interface LocationDistribution {
+  countries: Array<{ name: string; count: number; percentage: number; cities: Array<{ name: string; count: number }> }>;
+  topCities: Array<{ name: string; country: string; count: number; percentage: number }>;
+}
+
+function calculateGeographicMetrics(resources: Resource[], distribution: LocationDistribution) {
   // Calculate concentration index (Herfindahl-Hirschman Index)
   const totalResources = resources.length;
   const concentrationIndex = distribution.countries
-    .reduce((sum: number, country: any) => {
+    .reduce((sum: number, country) => {
       const marketShare = country.count / totalResources;
       return sum + Math.pow(marketShare, 2);
     }, 0) * 10000; // Scale to 0-10000
@@ -512,7 +474,7 @@ function calculateGeographicMetrics(resources: Resource[], distribution: any) {
   // Regional balance (measure of distribution evenness)
   const expectedShare = 1 / distribution.countries.length;
   const regionalBalance = 1 - distribution.countries
-    .reduce((sum: number, country: any) => {
+    .reduce((sum: number, country) => {
       const actualShare = country.count / totalResources;
       return sum + Math.pow(actualShare - expectedShare, 2);
     }, 0) / Math.pow(expectedShare, 2);
@@ -523,18 +485,39 @@ function calculateGeographicMetrics(resources: Resource[], distribution: any) {
   };
 }
 
+interface ClusterInfo {
+  id: string;
+  centerLocation: string;
+  size: number;
+  radius: number;
+  density: number;
+  members: Array<{ id: number; name: string; location: string }>;
+}
+
+interface CoverageInfo {
+  coveredLocations: number;
+  uncoveredRegions: string[];
+  coverageGaps: Array<{ region: string; importance: 'high' | 'medium' | 'low'; reason: string }>;
+  recommendedExpansions: string[];
+}
+
+interface MetricsInfo {
+  regionalBalance: number;
+  concentrationIndex: number;
+}
+
 function generateRecommendations(
   analysisType: string,
   resources: Resource[],
-  distribution: any,
-  clusters?: any[],
-  coverage?: any,
-  metrics?: any
+  distribution: LocationDistribution,
+  clusters?: ClusterInfo[],
+  coverage?: CoverageInfo,
+  metrics?: MetricsInfo
 ) {
   const recommendations = [];
   
   // Territory recommendations
-  if (metrics?.concentrationIndex > 2500) {
+  if (metrics?.concentrationIndex && metrics.concentrationIndex > 2500) {
     recommendations.push({
       type: 'territory' as const,
       priority: 'high' as const,
@@ -545,7 +528,7 @@ function generateRecommendations(
   }
   
   // Coverage recommendations
-  if (coverage?.uncoveredRegions.length > 0) {
+  if (coverage?.uncoveredRegions && coverage.uncoveredRegions.length > 0) {
     recommendations.push({
       type: 'coverage' as const,
       priority: 'medium' as const,
@@ -585,10 +568,10 @@ function generateRecommendations(
 
 function generateInsights(
   resources: Resource[],
-  distribution: any,
-  clusters?: any[],
-  coverage?: any,
-  metrics?: any
+  distribution: LocationDistribution,
+  clusters?: ClusterInfo[],
+  coverage?: CoverageInfo,
+  metrics?: MetricsInfo
 ) {
   const insights = [];
   
@@ -650,13 +633,13 @@ function generateInsights(
   return insights;
 }
 
-function generateSimpleMapVisualization(distribution: any): string {
+function generateSimpleMapVisualization(distribution: LocationDistribution): string {
   let map = '📍 Geographic Distribution Map\n\n';
   
   // Simple text-based visualization
-  const maxCount = Math.max(...distribution.countries.map((c: any) => c.count));
+  const maxCount = Math.max(...distribution.countries.map((c) => c.count));
   
-  distribution.countries.slice(0, 10).forEach((country: any) => {
+  distribution.countries.slice(0, 10).forEach((country) => {
     const barLength = Math.ceil((country.count / maxCount) * 20);
     const bar = '█'.repeat(barLength) + '░'.repeat(20 - barLength);
     
@@ -664,7 +647,7 @@ function generateSimpleMapVisualization(distribution: any): string {
   });
   
   map += '\n📊 Top Cities:\n';
-  distribution.topCities.slice(0, 5).forEach((city: any, index: number) => {
+  distribution.topCities.slice(0, 5).forEach((city, index: number) => {
     map += `${index + 1}. ${city.name}, ${city.country}: ${city.count} resources\n`;
   });
   

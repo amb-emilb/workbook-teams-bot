@@ -152,17 +152,21 @@ export interface AnalyticsDateRange {
   EndDate: string;
 }
 
-// Expense type enum
+// Expense type enum - Comprehensive API type definition
+/* eslint-disable no-unused-vars */
 export enum ExpenseType {
   TIME = 1,
   EXPENSE = 2,
   PRODUCT = 3,
   MILESTONE = 4
 }
+/* eslint-enable no-unused-vars */
 
-// Line type enum
+// Line type enum - Comprehensive API type definition
+/* eslint-disable no-unused-vars */
 export enum LineType {
   REVENUE = 'Revenue',
   COST = 'Cost',
   PROFIT = 'Profit'
 }
+/* eslint-enable no-unused-vars */

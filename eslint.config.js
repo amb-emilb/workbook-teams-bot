@@ -19,7 +19,12 @@ export default [
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         setInterval: 'readonly',
-        clearInterval: 'readonly'
+        clearInterval: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly'
       }
     },
     plugins: {
@@ -49,6 +54,7 @@ export default [
     ignores: [
       'node_modules/**',
       'dist/**',
+      '.mastra/**',
       '*.js'
     ]
   }

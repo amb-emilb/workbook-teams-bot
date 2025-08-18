@@ -4,6 +4,7 @@
 export * from './job.types.js';
 export * from './billing.types.js';
 export * from './analytics.types.js';
+export * from './tool-results.js';
 
 // Resource interface matches actual API response from ResourcesRequest
 // Resources represent all people in Workbook (employees, clients, contacts)
@@ -43,7 +44,7 @@ export interface Contact {
   Name: string;
   Initials: string;
   Email?: string;
-  Phone1?: string;
+  Phone1?: string;               // Optional - only present if contact has phone defined
   ParentResourceId: number;        // Links to parent company resource
   Active: boolean;
   // Permission fields
@@ -64,6 +65,7 @@ export interface Contact {
   InterfaceLCID?: number;
   ReportLCID?: number;
   ReleaseState?: number;
+  DefaultActivityType?: number;
 }
 
 // Hierarchical structure for representing client relationships

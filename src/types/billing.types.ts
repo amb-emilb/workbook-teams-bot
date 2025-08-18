@@ -85,7 +85,8 @@ export interface ConsolidatedInvoiceJobsParams {
   IncludeCompleted?: boolean;
 }
 
-// Invoice status enum
+// Invoice status enum - Comprehensive API type definition
+/* eslint-disable no-unused-vars */
 export enum InvoiceStatus {
   DRAFT = 1,
   SENT = 2,
@@ -94,11 +95,14 @@ export enum InvoiceStatus {
   CANCELLED = 5,
   PARTIALLY_PAID = 6
 }
+/* eslint-enable no-unused-vars */
 
-// Invoice type enum
+// Invoice type enum - Comprehensive API type definition
+/* eslint-disable no-unused-vars */
 export enum InvoiceType {
   STANDARD = 1,
   CREDIT_NOTE = 2,
   PRO_FORMA = 3,
   CONSOLIDATED = 4
 }
+/* eslint-enable no-unused-vars */

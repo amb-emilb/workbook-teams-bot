@@ -1,12 +1,12 @@
 import { 
-    Application, 
-    ActionPlanner,
-    PromptManager,
-    OpenAIModel,
-    TurnState,
-    DefaultConversationState,
-    DefaultUserState,
-    DefaultTempState
+  Application, 
+  ActionPlanner,
+  PromptManager,
+  OpenAIModel,
+  TurnState,
+  DefaultConversationState,
+  DefaultUserState,
+  DefaultTempState
 } from '@microsoft/teams-ai';
 import { MemoryStorage, TurnContext } from 'botbuilder';
 import * as path from 'path';
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { createWorkbookAgent } from '../agent/workbookAgent.js';
+import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
 import dotenv from 'dotenv';
@@ -40,38 +41,38 @@ const storage = new MemoryStorage();
  * Initialize Teams bot with Key Vault secrets
  */
 async function initializeTeamsBot() {
-    console.log('🔐 Initializing Teams bot with Key Vault secrets...');
+  console.log('🔐 Initializing Teams bot with Key Vault secrets...');
     
-    try {
-        // Get OpenAI API key from Key Vault
-        const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
+  try {
+    // Get OpenAI API key from Key Vault
+    const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
         
-        // Create OpenAI model for Teams AI (using Teams AI SDK pattern)
-        const model = new OpenAIModel({
-            apiKey: openaiApiKey,
-            defaultModel: 'gpt-4o-mini',
-            logRequests: true
-        });
+    // Create OpenAI model for Teams AI (using Teams AI SDK pattern)
+    const model = new OpenAIModel({
+      apiKey: openaiApiKey,
+      defaultModel: 'gpt-4o-mini',
+      logRequests: true
+    });
 
-        // Create prompt manager (we'll create prompts directory)
-        const promptsPath = path.join(__dirname, 'prompts');
-        if (!fs.existsSync(promptsPath)) {
-            fs.mkdirSync(promptsPath, { recursive: true });
-        }
-        const promptManager = new PromptManager({ promptsFolder: promptsPath });
-
-        // Create AI planner with prompt manager
-        const configuredPlanner = new ActionPlanner({
-            model,
-            prompts: promptManager,
-            defaultPrompt: 'workbook-assistant'
-        });
-
-        return configuredPlanner;
-    } catch (error) {
-        console.error('❌ Failed to initialize Teams bot:', error);
-        throw error;
+    // Create prompt manager (we'll create prompts directory)
+    const promptsPath = path.join(__dirname, 'prompts');
+    if (!fs.existsSync(promptsPath)) {
+      fs.mkdirSync(promptsPath, { recursive: true });
     }
+    const promptManager = new PromptManager({ promptsFolder: promptsPath });
+
+    // Create AI planner with prompt manager
+    const configuredPlanner = new ActionPlanner({
+      model,
+      prompts: promptManager,
+      defaultPrompt: 'workbook-assistant'
+    });
+
+    return configuredPlanner;
+  } catch (error) {
+    console.error('❌ Failed to initialize Teams bot:', error);
+    throw error;
+  }
 }
 
 /**
@@ -81,8 +82,8 @@ async function initializeTeamsBot() {
 interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultUserState, DefaultTempState> {
     workbookContext?: {
         lastQuery?: string;
-        lastResults?: any;
-        userPreferences?: Record<string, any>;
+        lastResults?: unknown;
+        userPreferences?: Record<string, unknown>;
     };
 }
 
@@ -90,136 +91,135 @@ interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultU
  * Create and configure the Teams AI application
  */
 export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> {
-    const planner = await initializeTeamsBot();
+  const planner = await initializeTeamsBot();
     
-    return new Application<WorkbookTurnState>({
-        storage,
-        ai: {
-            planner
-        },
-        turnStateFactory: () => {
-            const state = new TurnState<DefaultConversationState, DefaultUserState, DefaultTempState>();
-            (state as any).workbookContext = {};
-            return state as WorkbookTurnState;
-        }
-    });
+  return new Application<WorkbookTurnState>({
+    storage,
+    ai: {
+      planner
+    },
+    turnStateFactory: () => {
+      const state = new TurnState<DefaultConversationState, DefaultUserState, DefaultTempState>();
+      (state as WorkbookTurnState).workbookContext = {};
+      return state as WorkbookTurnState;
+    }
+  });
 }
 
 // Store initialized agent globally to avoid recreating it
-let cachedWorkbookAgent: any = null;
+let cachedWorkbookAgent: Agent | null = null;
 
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
  * This allows our existing 12 tools to work seamlessly with Teams
  */
 async function executeMastraAgent(message: string) {
-    try {
-        console.log('🔄 Bridging Teams AI → Mastra Agent');
-        console.log('📝 User message:', message);
+  try {
+    console.log('🔄 Bridging Teams AI → Mastra Agent');
+    console.log('📝 User message:', message);
 
-        // Initialize agent if not cached
-        if (!cachedWorkbookAgent) {
-            console.log('🔧 Initializing Workbook agent...');
-            cachedWorkbookAgent = await createWorkbookAgent();
-        }
-
-        // SECURITY: Input validation and sanitization
-        // Check for prompt injection attempts
-        if (detectPromptInjection(message)) {
-            console.warn('⚠️ Potential prompt injection detected:', message);
-            return 'Your request contains invalid patterns. Please rephrase your query.';
-        }
-
-        // Sanitize the input
-        const sanitizedMessage = sanitizeInput(message);
-        
-        // Validate if it's a search query
-        const queryValidation = validateSearchQuery(sanitizedMessage);
-        if (!queryValidation.valid) {
-            console.warn('❌ Invalid query:', queryValidation.error);
-            return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
-        }
-
-        console.log('✅ Input validated and sanitized');
-
-        // Execute our existing Mastra agent with sanitized input
-        const response = await cachedWorkbookAgent.run({
-            messages: [{ role: 'user', content: queryValidation.sanitized }]
-        });
-
-        // Extract the response text
-        let responseText = '';
-        if (response && response.messages && response.messages.length > 0) {
-            const lastMessage = response.messages[response.messages.length - 1];
-            responseText = lastMessage.content || 'I processed your request.';
-        } else {
-            responseText = 'I completed the task successfully.';
-        }
-
-        console.log('✅ Mastra agent response:', responseText.substring(0, 200) + '...');
-        return responseText;
-
-    } catch (error) {
-        console.error('❌ Error bridging to Mastra agent:', error);
-        return 'I encountered an error while processing your request. Please try again.';
+    // Initialize agent if not cached
+    if (!cachedWorkbookAgent) {
+      console.log('🔧 Initializing Workbook agent...');
+      cachedWorkbookAgent = await createWorkbookAgent();
     }
+
+    // SECURITY: Input validation and sanitization
+    // Check for prompt injection attempts
+    if (detectPromptInjection(message)) {
+      console.warn('⚠️ Potential prompt injection detected:', message);
+      return 'Your request contains invalid patterns. Please rephrase your query.';
+    }
+
+    // Sanitize the input
+    const sanitizedMessage = sanitizeInput(message);
+        
+    // Validate if it's a search query
+    const queryValidation = validateSearchQuery(sanitizedMessage);
+    if (!queryValidation.valid) {
+      console.warn('❌ Invalid query:', queryValidation.error);
+      return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
+    }
+
+    console.log('✅ Input validated and sanitized');
+
+    // Execute our existing Mastra agent with sanitized input
+    const response = await cachedWorkbookAgent.generate([
+      { role: 'user', content: queryValidation.sanitized }
+    ]);
+
+    // Extract the response text
+    let responseText = '';
+    if (response && response.text) {
+      responseText = response.text;
+    } else {
+      responseText = 'I completed the task successfully.';
+    }
+
+    console.log('✅ Mastra agent response:', responseText.substring(0, 200) + '...');
+    return responseText;
+
+  } catch (error) {
+    console.error('❌ Error bridging to Mastra agent:', error);
+    return 'I encountered an error while processing your request. Please try again.';
+  }
 }
 
 /**
  * Configure Teams bot handlers
  */
 export async function configureTeamsBotHandlers(app: Application<WorkbookTurnState>) {
-    // Handle all messages by bridging to our Mastra agent
-    app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
-        const message = context.activity.text || '';
+  // Handle all messages by bridging to our Mastra agent
+  app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
+    const message = context.activity.text || '';
         
-        if (!message.trim()) {
-            await context.sendActivity('Hi! I\'m your Workbook assistant. Ask me about resources, companies, or data analysis.');
-            return;
-        }
+    if (!message.trim()) {
+      await context.sendActivity('Hi! I\'m your Workbook assistant. Ask me about resources, companies, or data analysis.');
+      return;
+    }
 
-        // Show typing indicator while processing
-        await context.sendActivity({ type: 'typing' });
+    // Show typing indicator while processing
+    await context.sendActivity({ type: 'typing' });
 
-        try {
-            // Bridge to our existing Mastra agent
-            const response = await executeMastraAgent(message);
+    try {
+      // Bridge to our existing Mastra agent
+      const response = await executeMastraAgent(message);
             
-            // Store context for future turns
-            if (state.workbookContext) {
-                state.workbookContext.lastQuery = message;
-                state.workbookContext.lastResults = response;
-            }
+      // Store context for future turns
+      if (state.workbookContext) {
+        state.workbookContext.lastQuery = message;
+        state.workbookContext.lastResults = response;
+      }
             
-            // Send the response back to Teams
-            await context.sendActivity(response);
+      // Send the response back to Teams
+      await context.sendActivity(response);
 
-        } catch (error) {
-            console.error('❌ Teams message handler error:', error);
-            await context.sendActivity('I\'m experiencing technical difficulties. Please try again later.');
-        }
-    });
+    } catch (error) {
+      console.error('❌ Teams message handler error:', error);
+      await context.sendActivity('I\'m experiencing technical difficulties. Please try again later.');
+    }
+  });
 
-    // Handle adaptive card submits (for future interactive features)
-    app.adaptiveCards.actionSubmit('workbook_action', async (context, state, data) => {
-        console.log('📋 Adaptive card action received:', data);
-        await context.sendActivity('Action received and processed.');
-    });
+  // Handle adaptive card submits (for future interactive features)
+  app.adaptiveCards.actionSubmit('workbook_action', async (context, state, data) => {
+    console.log('📋 Adaptive card action received:', data);
+    await context.sendActivity('Action received and processed.');
+  });
 
-    // Add logging for debugging - using conversationUpdate as a generic activity handler
-    app.conversationUpdate('membersAdded', async (context: TurnContext, state: WorkbookTurnState) => {
-        console.log(`🔄 Processing activity: ${context.activity.type}`);
-        if (context.activity.text) {
-            console.log(`📝 Message: "${context.activity.text}"`);
-        }
-    });
+  // Add logging for debugging - using conversationUpdate as a generic activity handler
+  app.conversationUpdate('membersAdded', async (context: TurnContext) => {
+    console.log(`🔄 Processing activity: ${context.activity.type}`);
+    if (context.activity.text) {
+      console.log(`📝 Message: "${context.activity.text}"`);
+    }
+  });
 }
 
 /**
  * Create and configure the complete Teams bot application
  */
 export async function createConfiguredTeamsBot(): Promise<Application<WorkbookTurnState>> {
-    const app = await createTeamsApp();
-    await configureTeamsBotHandlers(app);
-    return app;
+  const app = await createTeamsApp();
+  await configureTeamsBotHandlers(app);
+  return app;
 }

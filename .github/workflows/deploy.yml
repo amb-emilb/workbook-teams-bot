@@ -46,7 +46,51 @@ jobs:
       
     - name: Create deployment package
       run: |
+        echo "Creating deployment package..."
+        
+        # Validate required files exist
+        if [ ! -d "dist" ]; then
+          echo "::error::dist directory not found - build may have failed"
+          exit 1
+        fi
+        
+        if [ ! -f "package.json" ]; then
+          echo "::error::package.json not found"
+          exit 1
+        fi
+        
+        if [ ! -f "package-lock.json" ]; then
+          echo "::error::package-lock.json not found"
+          exit 1
+        fi
+        
+        if [ ! -d "teams-app" ]; then
+          echo "::error::teams-app directory not found"
+          exit 1
+        fi
+        
+        # Verify critical files in dist directory
+        if [ ! -f "dist/teams/index.js" ]; then
+          echo "::error::Main application file dist/teams/index.js not found"
+          exit 1
+        fi
+        
+        # Create deployment package
+        echo "Packaging files: dist, package.json, package-lock.json, teams-app"
         zip -r deploy.zip dist package.json package-lock.json teams-app
+        
+        # Verify package was created
+        if [ ! -f "deploy.zip" ]; then
+          echo "::error::Failed to create deployment package"
+          exit 1
+        fi
+        
+        # Show package contents for verification
+        echo "Deployment package contents:"
+        unzip -l deploy.zip | head -20
+        
+        PACKAGE_SIZE=$(stat -c%s "deploy.zip" 2>/dev/null || stat -f%z "deploy.zip" 2>/dev/null || echo "unknown")
+        echo "Package size: $PACKAGE_SIZE bytes"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -114,44 +158,91 @@ jobs:
         
     - name: Deploy Azure Infrastructure
       run: |
-        DEPLOYMENT_OUTPUT=$(az deployment group create \
+        echo "Starting ARM template deployment..."
+        
+        # Run deployment with full JSON output for error diagnostics
+        DEPLOYMENT_RESULT=$(az deployment group create \
           --resource-group ${{ vars.RESOURCE_GROUP }} \
           --template-file deployment/azure-deploy.json \
           --parameters \
             appServiceName=${{ vars.AZURE_WEBAPP_NAME }} \
             keyVaultName=${{ vars.KEY_VAULT_NAME }} \
             botAppId=${{ secrets.MICROSOFT_APP_ID }} \
-          --query "properties.provisioningState" \
-          --output tsv)
+          --output json)
         
-        if [ "$DEPLOYMENT_OUTPUT" != "Succeeded" ]; then
-          echo "ARM deployment failed with status: $DEPLOYMENT_OUTPUT"
+        # Extract deployment status
+        DEPLOYMENT_STATUS=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.provisioningState // "Unknown"')
+        
+        echo "Deployment Status: $DEPLOYMENT_STATUS"
+        
+        if [ "$DEPLOYMENT_STATUS" != "Succeeded" ]; then
+          echo "::error::ARM deployment failed with status: $DEPLOYMENT_STATUS"
+          
+          # Extract detailed error information
+          ERROR_CODE=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.error.code // "N/A"')
+          ERROR_MESSAGE=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.error.message // "N/A"')
+          
+          echo "::error::Error Code: $ERROR_CODE"
+          echo "::error::Error Message: $ERROR_MESSAGE"
+          
+          # Check for specific resource deployment failures
+          echo "Checking individual resource deployment status..."
+          az deployment operation group list \
+            --resource-group ${{ vars.RESOURCE_GROUP }} \
+            --name $(echo "$DEPLOYMENT_RESULT" | jq -r '.name') \
+            --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName,type:properties.targetResource.resourceType,error:properties.statusMessage}" \
+            --output table
+          
           exit 1
         fi
-        echo "Infrastructure deployment succeeded"
+        
+        echo "✅ Infrastructure deployment succeeded"
+        
+        # Verify critical resources are ready
+        echo "Verifying deployed resources..."
+        
+        # Check App Service
+        APP_STATE=$(az webapp show --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_WEBAPP_NAME }} --query "state" --output tsv)
+        echo "App Service State: $APP_STATE"
+        
+        # Check Key Vault
+        KV_STATE=$(az keyvault show --name ${{ vars.KEY_VAULT_NAME }} --query "properties.provisioningState" --output tsv)
+        echo "Key Vault State: $KV_STATE"
+        
+        if [ "$KV_STATE" != "Succeeded" ]; then
+          echo "::warning::Key Vault not ready yet, waiting 30 seconds for provisioning to complete..."
+          sleep 30
+        fi
         
     - name: Configure Key Vault secrets
       run: |
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "openai-api-key" \
-          --value "${{ secrets.OPENAI_API_KEY }}"
+        echo "Configuring Key Vault secrets..."
         
-    - name: Deploy to production
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: ${{ vars.AZURE_WEBAPP_NAME }}
-        package: deploy.zip
+        # Wait for Key Vault to be fully ready
+        echo "Ensuring Key Vault access is available..."
+        for i in {1..5}; do
+          if az keyvault secret set \
+            --vault-name ${{ vars.KEY_VAULT_NAME }} \
+            --name "openai-api-key" \
+            --value "${{ secrets.OPENAI_API_KEY }}" > /dev/null 2>&1; then
+            echo "✅ OpenAI API key configured successfully"
+            break
+          else
+            echo "Attempt $i/5: Key Vault not ready, waiting 10 seconds..."
+            sleep 10
+          fi
+        done
         
-    - name: Configure Key Vault secrets
-      run: |
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "openai-api-key" \
-          --value "${{ secrets.OPENAI_API_KEY }}"
+        # Verify secret was set
+        SECRET_CHECK=$(az keyvault secret show --vault-name ${{ vars.KEY_VAULT_NAME }} --name "openai-api-key" --query "id" --output tsv 2>/dev/null || echo "FAILED")
+        if [ "$SECRET_CHECK" = "FAILED" ]; then
+          echo "::error::Failed to configure Key Vault secrets"
+          exit 1
+        fi
         
     - name: Configure App Settings
       run: |
+        echo "Configuring App Service settings..."
         az webapp config appsettings set \
           --resource-group ${{ vars.RESOURCE_GROUP }} \
           --name ${{ vars.AZURE_WEBAPP_NAME }} \
@@ -161,12 +252,65 @@ jobs:
             KEY_VAULT_NAME="${{ vars.KEY_VAULT_NAME }}" \
             NODE_ENV=dev \
             PORT=3978
+        echo "✅ App settings configured"
+        
+    - name: Deploy to production
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+        package: deploy.zip
         
     - name: Health check
       run: |
         echo "Waiting for app to start (60 seconds)..."
         sleep 60
-        curl -f https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || exit 1
+        
+        APP_URL="https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+        
+        echo "Testing health endpoint at: $APP_URL/health"
+        
+        # Get detailed health check response
+        HEALTH_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}\n" "$APP_URL/health" || echo "CURL_FAILED")
+        
+        if [[ "$HEALTH_RESPONSE" == "CURL_FAILED" ]]; then
+          echo "::error::Failed to connect to health endpoint"
+          echo "Checking app service logs for startup issues..."
+          
+          # Get recent app service logs
+          az webapp log tail --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_WEBAPP_NAME }} --provider application --num 50 || true
+          exit 1
+        fi
+        
+        # Extract HTTP status code
+        HTTP_CODE=$(echo "$HEALTH_RESPONSE" | grep "HTTP_CODE:" | sed 's/HTTP_CODE://')
+        HEALTH_JSON=$(echo "$HEALTH_RESPONSE" | head -n -1)
+        
+        echo "HTTP Status: $HTTP_CODE"
+        echo "Health Response: $HEALTH_JSON"
+        
+        # Parse health status from JSON response
+        HEALTH_STATUS=$(echo "$HEALTH_JSON" | jq -r '.status // "unknown"')
+        
+        echo "Application Status: $HEALTH_STATUS"
+        
+        if [[ "$HTTP_CODE" == "200" ]]; then
+          if [[ "$HEALTH_STATUS" == "healthy" ]]; then
+            echo "✅ Application is healthy and all checks passed"
+          elif [[ "$HEALTH_STATUS" == "degraded" ]]; then
+            echo "⚠️  Application is running but with issues:"
+            echo "$HEALTH_JSON" | jq -r '.checks // {}' | jq 'to_entries[] | select(.value.status != "healthy") | "- \(.key): \(.value.message)"'
+            
+            # Continue deployment but warn about issues
+            echo "::warning::Application deployed successfully but some health checks failed"
+          else
+            echo "::error::Application health check returned unexpected status: $HEALTH_STATUS"
+            exit 1
+          fi
+        else
+          echo "::error::Health check failed with HTTP $HTTP_CODE"
+          echo "Response: $HEALTH_JSON"
+          exit 1
+        fi
         
     - name: Update Application Insights
       run: |

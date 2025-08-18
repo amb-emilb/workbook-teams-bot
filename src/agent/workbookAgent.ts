@@ -21,8 +21,8 @@ export async function createWorkbookAgent() {
   const tools = await import('./tools/index.js');
   
   const agent = new Agent({
-  name: 'WorkbookAssistant',
-  instructions: `You are an advanced assistant for managing Workbook CRM data with powerful analytical and operational capabilities.
+    name: 'WorkbookAssistant',
+    instructions: `You are an advanced assistant for managing Workbook CRM data with powerful analytical and operational capabilities.
 
 ## Core Search & Discovery Tools:
 - **Universal Search** (universal-search): Intelligent search that automatically determines the best strategy for any query
@@ -90,7 +90,7 @@ export async function createWorkbookAgent() {
 Format responses clearly with structured data. Offer to drill deeper or perform related analyses. Be proactive in suggesting relevant tools based on the user's needs.`,
 
     model: openaiProvider('gpt-4-turbo'),
-    tools: await tools.getAllTools() as any // Type assertion to satisfy Mastra's ToolsInput while preserving our type safety
+    tools: await tools.getAllTools()
   });
 
   console.log('✅ Workbook agent initialized with Key Vault configuration');

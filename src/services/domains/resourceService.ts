@@ -19,6 +19,7 @@ export class ResourceService extends BaseService {
 
   /**
    * Search resources with optional parameters and caching
+   * Uses two-step pattern: ResourcesRequest (filter) + ResourceRequest[] (complete data)
    */
   async search(params?: Record<string, unknown>): Promise<ServiceResponse<Resource[]>> {
     const cacheKey = this.generateCacheKey('resources:search', params);
@@ -34,16 +35,43 @@ export class ResourceService extends BaseService {
       };
     }
 
-    // Make API call
+    // If no search parameters, fall back to complete dataset
+    if (!params || Object.keys(params).length === 0) {
+      return this.getAllResourcesComplete();
+    }
+
+    // Step 1: Get filtered resource IDs using ResourcesRequest
     this.logApiCall('ResourcesRequest', 'GET');
-    const response = await this.get<Resource[]>('ResourcesRequest', params);
+    const idsResponse = await this.get<Resource[]>('ResourcesRequest', params);
+    
+    if (!idsResponse.success || !idsResponse.data) {
+      return {
+        success: false,
+        error: idsResponse.error || 'Failed to get filtered resource IDs'
+      };
+    }
+
+    // Extract IDs from the filtered results
+    const filteredIds = idsResponse.data.map(resource => resource.Id);
+    
+    if (filteredIds.length === 0) {
+      return {
+        success: true,
+        data: [],
+        cached: false
+      };
+    }
+
+    // Step 2: Get complete resource data using ResourceRequest[] bulk operation
+    this.logApiCall('ResourceRequest[]', 'GET');
+    const completeDataResponse = await this.getBulkByIds(filteredIds);
     
     // Cache successful responses
-    if (response.success && response.data) {
-      cacheManager.setResources(cacheKey, response.data);
+    if (completeDataResponse.success && completeDataResponse.data) {
+      cacheManager.setResources(cacheKey, completeDataResponse.data);
     }
     
-    return response;
+    return completeDataResponse;
   }
 
   /**
@@ -80,9 +108,9 @@ export class ResourceService extends BaseService {
 
     // Use the correct payload structure from browser network tab
     const payload = {
-      Filter: "",
-      IsUnion: "true",
-      ExternalKeys: "",
+      Filter: '',
+      IsUnion: 'true',
+      ExternalKeys: '',
       HideInactive: true,
       InternalCustomers: false,
       Active: true,
@@ -91,9 +119,9 @@ export class ResourceService extends BaseService {
       Favorite: null,
       HideInternalCustomers: false,
       MyClients: null,
-      ResourceType: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      ResourceType: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       ResponsibleResourceId: null,
-      Union: "true"
+      Union: 'true'
     };
 
     this.logApiCall('ResourceIdsRequest', 'POST');
@@ -684,7 +712,7 @@ export class ResourceService extends BaseService {
       
       // Group resources by type (based on user-insights.md)
       const companies = resources.filter(r => r.TypeId === 1 || r.TypeId === 3); // Client companies
-      const employees = resources.filter(r => r.TypeId === 2);  // Internal employees
+      // const _employees = resources.filter(r => r.TypeId === 2);  // Internal employees - TODO: Use for employee hierarchy
       
       // Process each company
       for (const company of companies) {

@@ -106,7 +106,8 @@ export interface JobKeyFiguresNotificationParams {
   PlanId?: number;
 }
 
-// Job status enum
+// Job status enum - Comprehensive API type definition
+/* eslint-disable no-unused-vars */
 export enum JobStatus {
   DRAFT = 1,
   ACTIVE = 2,
@@ -114,10 +115,13 @@ export enum JobStatus {
   CANCELLED = 4,
   ON_HOLD = 5
 }
+/* eslint-enable no-unused-vars */
 
-// Project/Retainer job type enum
+// Project/Retainer job type enum - Comprehensive API type definition  
+/* eslint-disable no-unused-vars */
 export enum ProjectRetainerJobType {
   PROJECT = 1,
   RETAINER = 2,
   MIXED = 3
 }
+/* eslint-enable no-unused-vars */
