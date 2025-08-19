@@ -179,7 +179,18 @@
           "nodeVersion": "20-lts",
           "alwaysOn": false,
           "webSocketsEnabled": true,
-          "appCommandLine": "npm start"
+          "appCommandLine": "npm start",
+          "ipSecurityRestrictions": [
+            {
+              "ipAddress": "AzureBotService",
+              "action": "Allow",
+              "tag": "ServiceTag",
+              "priority": 100,
+              "name": "AzureBotService",
+              "description": "Allow Azure Bot Service"
+            }
+          ],
+          "ipSecurityRestrictionsDefaultAction": "Deny"
         }
       }
     },
