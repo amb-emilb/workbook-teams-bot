@@ -36,10 +36,14 @@ async function initializeServer() {
       keyVaultService.getSecret('microsoft-app-password')
     ]);
 
-    // Create Bot Framework Adapter with Key Vault credentials
+    // Create Bot Framework Adapter with Key Vault credentials and strict authentication
     const adapter = new BotFrameworkAdapter({
       appId,
-      appPassword
+      appPassword,
+      // Enable strict authentication - only accept requests from Microsoft Bot Connector
+      channelService: process.env.ChannelService || undefined
+      // The adapter will automatically validate JWT tokens from Microsoft
+      // Additional validation is handled in the /api/messages endpoint
     });
 
     // Error handler for the adapter
@@ -91,6 +95,61 @@ async function startServer() {
     // Add middleware
     server.use(restify.plugins.bodyParser());
     server.use(restify.plugins.queryParser());
+
+    // Add security headers middleware
+    server.use((req, res, next) => {
+      // Security headers to prevent various attacks
+      res.header('X-Content-Type-Options', 'nosniff');
+      res.header('X-Frame-Options', 'DENY');
+      res.header('X-XSS-Protection', '1; mode=block');
+      res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      
+      // Remove server identification
+      res.header('Server', 'Workbook Teams Bot');
+      
+      return next();
+    });
+
+    // Simple rate limiting for the bot endpoint (in-memory, resets on restart)
+    const requestCounts = new Map();
+    const RATE_LIMIT_WINDOW = 60000; // 1 minute
+    const MAX_REQUESTS_PER_WINDOW = 100; // Max 100 requests per minute per IP
+
+    server.use((req, res, next) => {
+      // Only apply rate limiting to /api/messages endpoint
+      if (req.url !== '/api/messages') {
+        return next();
+      }
+
+      const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      const now = Date.now();
+      
+      if (!requestCounts.has(clientIp)) {
+        requestCounts.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      } else {
+        const clientData = requestCounts.get(clientIp);
+        
+        if (now > clientData.resetTime) {
+          // Reset the window
+          clientData.count = 1;
+          clientData.resetTime = now + RATE_LIMIT_WINDOW;
+        } else {
+          clientData.count++;
+          
+          if (clientData.count > MAX_REQUESTS_PER_WINDOW) {
+            console.warn(`SECURITY: Rate limit exceeded for IP: ${clientIp}`);
+            res.status(429);
+            res.json({ 
+              error: 'Too Many Requests',
+              message: 'Rate limit exceeded. Please try again later.'
+            });
+            return;
+          }
+        }
+      }
+      
+      return next();
+    });
 
     // Health check endpoint with Key Vault connectivity test
     server.get('/health', (req, res, next) => {
@@ -169,23 +228,63 @@ async function startServer() {
       })();
     });
 
-    // Bot Framework messages endpoint
+    // Bot Framework messages endpoint with authentication validation
     server.post('/api/messages', async (req, res) => {
-      console.log('Incoming bot message:', req.body?.type || 'unknown');
-            
-      await adapter.process(req, res, async (context) => {
-        // Route the request to our Teams AI application
-        await teamsApp.run(context);
-      });
+      try {
+        // Log incoming request details for security monitoring
+        console.log('Incoming request to /api/messages:', {
+          hasAuthHeader: !!req.headers.authorization,
+          activityType: req.body?.type || 'unknown',
+          source: req.headers['x-forwarded-for'] || req.connection.remoteAddress
+        });
+
+        // SECURITY: Validate that request has proper Bot Framework authentication
+        // The BotFrameworkAdapter will validate the JWT token, but we add extra checks
+        if (!req.headers.authorization) {
+          console.warn('SECURITY: Rejected request without Authorization header');
+          res.status(401);
+          res.json({ 
+            error: 'Unauthorized Access. Request is not authorized',
+            message: 'This endpoint only accepts requests from Microsoft Bot Connector'
+          });
+          return;
+        }
+
+        // Additional validation: Check for Bot Framework specific headers
+        const userAgent = req.headers['user-agent'] || '';
+        const hasValidUserAgent = userAgent.includes('Microsoft-BotFramework') || 
+                                   userAgent.includes('Microsoft-SkypeBotApi') ||
+                                   userAgent.includes('Microsoft-Teams');
+        
+        if (!hasValidUserAgent && process.env.NODE_ENV === 'production') {
+          console.warn('SECURITY: Suspicious User-Agent detected:', userAgent);
+          // In production, we might want to reject these requests
+          // For now, log but allow the adapter to handle validation
+        }
+
+        // Process the request through Bot Framework Adapter
+        // The adapter will perform JWT validation and reject invalid tokens
+        await adapter.process(req, res, async (context) => {
+          // Only run the bot if we get here (authentication passed)
+          await teamsApp.run(context);
+        });
+      } catch (error) {
+        console.error('Error processing bot message:', error);
+        
+        // Don't leak internal errors to potential attackers
+        if (!res.headersSent) {
+          res.status(500);
+          res.json({ error: 'Internal server error' });
+        }
+      }
     });
 
-    // Static file serving for auth flows (if needed later)
+    // Static file serving for auth flows
     server.get('/static/*', restify.plugins.serveStatic({
       directory: __dirname,
       default: 'index.html'
     }));
-
-    // Start the server
+    
     const port = process.env.PORT || 3978;
 
     server.listen(port, () => {
