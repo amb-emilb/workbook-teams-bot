@@ -190,7 +190,8 @@
               "description": "Allow Azure Bot Service"
             }
           ],
-          "ipSecurityRestrictionsDefaultAction": "Deny"
+          "ipSecurityRestrictionsDefaultAction": "Deny",
+          "healthCheckPath": "/health"
         }
       }
     },
