@@ -101,8 +101,8 @@ export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> 
     new ConfigurationServiceClientCredentialFactory({
       MicrosoftAppType: process.env.BOT_TYPE || process.env.MICROSOFT_APP_TYPE || 'UserAssignedMSI',
       MicrosoftAppId: process.env.BOT_ID || process.env.MICROSOFT_APP_ID,
-      MicrosoftAppPassword: process.env.BOT_PASSWORD || process.env.MICROSOFT_APP_PASSWORD,
       MicrosoftAppTenantId: process.env.BOT_TENANT_ID || process.env.MICROSOFT_APP_TENANT_ID
+      // NO MicrosoftAppPassword for UserAssignedMSI - MSI handles authentication automatically
     })
   );
     
