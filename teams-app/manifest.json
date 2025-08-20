@@ -1,8 +1,8 @@
 {
     "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
     "manifestVersion": "1.16",
-    "version": "1.0.4",
-    "id": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
+    "version": "1.0.6",
+    "id": "1a915ea6-267d-4419-b4ce-add0b98d0e1b",
     "developer": {
         "name": "Ambition",
         "websiteUrl": "https://ambition.dk",
@@ -24,7 +24,7 @@
     "accentColor": "#FFFFFF",
     "bots": [
         {
-            "botId": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
+            "botId": "1a915ea6-267d-4419-b4ce-add0b98d0e1b",
             "scopes": [
                 "personal",
                 "team",
@@ -70,8 +70,8 @@
         "*.workbook.net"
     ],
     "webApplicationInfo": {
-        "id": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
-        "resource": "api://workbook-teams-bot.azurewebsites.net/f076c31d-88e0-4d99-9b3f-e91016e1972c"
+        "id": "1a915ea6-267d-4419-b4ce-add0b98d0e1b",
+        "resource": "api://workbook-teams-bot.azurewebsites.net/1a915ea6-267d-4419-b4ce-add0b98d0e1b"
     },
     "showLoadingIndicator": true,
     "isFullScreen": false,

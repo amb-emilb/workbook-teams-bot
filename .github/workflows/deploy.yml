@@ -189,71 +189,29 @@ jobs:
           exit 1
         fi
         
-    - name: Configure Key Vault secrets
+    - name: Skip Key Vault Secret Update (Manual Management)
       run: |
-        echo "Configuring Key Vault secrets..."
+        echo "⚠️ Key Vault secret updates DISABLED - using manually configured secrets"
+        echo "Key Vault secrets managed manually:"
+        echo "  ✅ openai-api-key: Configured manually"
+        echo "  ✅ microsoft-app-id: Configured manually"  
+        echo "  ✅ microsoft-app-password: Configured manually"
+        echo "  ✅ workbook-api-key-dev: Configured manually"
+        echo "  ✅ workbook-api-key-prod: Configured manually"
+        echo "  ✅ workbook-password-dev: Configured manually"
+        echo "  ✅ workbook-password-prod: Configured manually"
         
-        # Wait for Key Vault to be fully ready
-        echo "Ensuring Key Vault access is available..."
-        for i in {1..5}; do
-          if az keyvault secret set \
-            --vault-name ${{ vars.KEY_VAULT_NAME }} \
-            --name "openai-api-key" \
-            --value "${{ secrets.OPENAI_API_KEY }}" > /dev/null 2>&1; then
-            echo "✅ OpenAI API key configured successfully"
-            break
-          else
-            echo "Attempt $i/5: Key Vault not ready, waiting 10 seconds..."
-            sleep 10
-          fi
-        done
-        
-        # Configure all required secrets
-        echo "Setting Microsoft Bot credentials..."
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "microsoft-app-id" \
-          --value "${{ secrets.MICROSOFT_APP_ID }}" > /dev/null
-        
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "microsoft-app-password" \
-          --value "${{ secrets.MICROSOFT_APP_PASSWORD }}" > /dev/null
-        
-        echo "Setting Workbook API credentials..."
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "workbook-api-key-dev" \
-          --value "${{ secrets.WORKBOOK_API_KEY_DEV }}" > /dev/null
-        
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "workbook-api-key-prod" \
-          --value "${{ secrets.WORKBOOK_API_KEY_PROD }}" > /dev/null
-        
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "workbook-password-dev" \
-          --value "${{ secrets.WORKBOOK_PASSWORD_DEV }}" > /dev/null
-        
-        az keyvault secret set \
-          --vault-name ${{ vars.KEY_VAULT_NAME }} \
-          --name "workbook-password-prod" \
-          --value "${{ secrets.WORKBOOK_PASSWORD_PROD }}" > /dev/null
-        
-        echo "✅ All secrets configured successfully"
-        
-        # Verify all critical secrets were set
+        # Just verify secrets exist without overwriting them
         REQUIRED_SECRETS=("openai-api-key" "microsoft-app-id" "microsoft-app-password" "workbook-api-key-dev" "workbook-api-key-prod" "workbook-password-dev" "workbook-password-prod")
         
-        echo "Verifying all required secrets..."
+        echo "Verifying manually configured secrets exist..."
         for secret in "${REQUIRED_SECRETS[@]}"; do
           SECRET_CHECK=$(az keyvault secret show --vault-name ${{ vars.KEY_VAULT_NAME }} --name "$secret" --query "id" --output tsv 2>/dev/null || echo "FAILED")
           if [ "$SECRET_CHECK" = "FAILED" ]; then
-            echo "::error::Failed to configure secret: $secret"
+            echo "::error::Missing manually configured secret: $secret"
             exit 1
           else
-            echo "✅ Secret verified: $secret"
+            echo "✅ Secret exists: $secret"
           fi
         done
         

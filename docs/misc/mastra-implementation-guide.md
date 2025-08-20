@@ -1,8 +1,8 @@
 # Workbook Teams Agent - Implementation Guide
 
 ## 📋 Project Overview
-**Status**: Phase 5 Teams Integration READY FOR DEPLOYMENT  
-**Current Phase**: Phase 5 - All Technical Issues Resolved, Bot Authentication Fixed, Ready for Teams App Deployment
+**Status**: Phase 7 Authentication Architecture Correction REQUIRED  
+**Current Phase**: Phase 7 - Fundamental Authentication Understanding Complete, Implementing Correct Solution
 
 ---
 
@@ -151,7 +151,7 @@ git push origin main
 
 ---
 
-## 👥 **PHASE 5: Teams Integration** **READY FOR DEPLOYMENT**
+## 👥 **PHASE 5: Teams Integration** **AUTHENTICATION ISSUE IDENTIFIED**
 
 ### ✅ **Teams App Package Preparation** **COMPLETED**
 - [x] **Manifest Update** - Production URLs and correct bot IDs configured ✅
@@ -173,25 +173,92 @@ git push origin main
 - [x] **Bot ID Configuration** - Correct production bot ID in manifest ✅
 - [x] **Deployment Guide** - Complete instructions for Teams Admin Center deployment ✅
 
-### **Ready for Deployment** 🚀
-**Package Details:**
-- **File**: `workbook-teams-app-production.zip`
-- **Size**: ~9.35 KB (well under 30MB limit)
-- **Contents**: Production manifest + compliant color and outline icons
-- **Bot Endpoint**: `https://workbook-teams-bot.azurewebsites.net/api/messages`
-- **Environment**: Connected to Workbook DEV for safe testing
+### ❌ **CRITICAL AUTHENTICATION ISSUE DISCOVERED** 
+**Root Cause**: Configuration mismatch between SingleTenant Bot Service and MultiTenant App Registration
+- **Error**: `AuthenticationError: Unauthorized. Invalid AppId passed on token: f076c31d-88e0-4d99-9b3f-e91016e1972c`
+- **Bot Receives Messages**: ✅ Authentication works for incoming requests
+- **Bot Cannot Respond**: ❌ Authentication fails for outgoing responses
+- **Issue**: SingleTenant Bot Service (TenantId: `c7f97bc7-eaed-4b0a-a67e-144a544e1bd2`) vs MultiTenant App Registration (`AzureADMultipleOrgs`)
 
-**Deployment Options Ready:**
-- [x] **Teams Admin Center** - Enterprise deployment via admin center ✅
-- [x] **Sideloading** - Individual testing deployment ✅
-- [x] **App Store Submission** - Microsoft Store publication process ✅
-- [x] **DEPLOYMENT-GUIDE.md** - Comprehensive deployment instructions ✅
+### **Current Status**: Bot deployment successful but non-functional due to authentication mismatch
 
-### **Production Validation** (Post-Deployment)
-- [ ] **End-to-End Testing** - Full workflow testing in Teams
-- [ ] **User Acceptance** - Testing with actual users  
-- [ ] **Performance Validation** - Load testing and optimization
-- [ ] **Security Review** - Final security and compliance validation
+---
+
+## ❌ **PHASE 6: User-Assigned Managed Identity Implementation** **FAILED - WRONG APPROACH**
+
+### **CRITICAL ERROR IDENTIFIED** 
+**❌ FUNDAMENTAL MISUNDERSTANDING**: Azure Bot Service does NOT support Managed Identity for Bot Framework authentication
+
+**What We Tried (WRONG):**
+- [x] Created User-Assigned Managed Identity `workbook-teams-bot-identity` ✅ 
+- [x] Updated Bot Service to `UserAssignedMSI` type ❌ **INVALID CONFIG**
+- [x] Updated App Service environment variables to use Managed Identity Client ID ❌ **WRONG PATTERN**
+
+**Why This Failed:**
+- Azure Bot Service only supports: **App Registration** OR **SingleTenant** configurations  
+- **User-Assigned Managed Identity is NOT supported** for Bot Framework authentication
+- Bot Framework Service (in Microsoft tenant) **requires App Registration credentials**
+- Managed Identity is only for App Service → Azure resource authentication (Key Vault, SQL, etc.)
+
+**STATUS**: **ABANDONED** - This approach is fundamentally incompatible with Bot Framework architecture
+
+---
+
+## 🎯 **PHASE 7: Correct Authentication Architecture Implementation** **READY TO START**
+
+### **CRITICAL UNDERSTANDING: Two Separate Authentication Flows**
+
+#### **Flow 1: Bot ↔ Bot Framework Service** (Microsoft's botframework.com tenant)
+- **MUST use App Registration credentials** 
+- **REQUIRES Multitenant App Registration** (our current config is CORRECT)
+- Uses `MICROSOFT_APP_ID`, `MICROSOFT_APP_PASSWORD`, `MICROSOFT_APP_TYPE: "MultiTenant"`
+
+#### **Flow 2: App Service ↔ Azure Resources** (Key Vault, SQL, etc.)
+- **CAN use Managed Identity** (our current config is CORRECT)
+- Separate from Bot Framework authentication
+- For accessing Key Vault secrets, database connections, etc.
+
+### **Phase 7 Implementation Plan** *(CORRECTED - Focus on Code Authentication Pattern)*
+
+**CRITICAL UNDERSTANDING**: Bot Service configuration is NOT the issue. The issue is the Teams AI SDK authentication pattern in our code.
+
+#### **Step 1: Fix Teams AI SDK Authentication Pattern** 
+- [ ] **Update src/teams/teamsBot.ts** - Replace empty `TeamsAdapter()` constructor with `ConfigurationServiceClientCredentialFactory`
+- [ ] **Import Required Dependencies** - Add `ConfigurationServiceClientCredentialFactory` from 'botbuilder'
+- [ ] **Implement Working Pattern** - Use exact pattern from working TeamsChefBot sample
+- [ ] **Test Locally First** - Verify authentication pattern works before Azure deployment
+
+#### **Step 2: Configure Environment Variables**
+- [ ] **Set MICROSOFT_APP_ID** - `f076c31d-88e0-4d99-9b3f-e91016e1972c` (original App Registration - MultiTenant)
+- [ ] **Set MICROSOFT_APP_PASSWORD** - From Key Vault secret `microsoft-app-password`
+- [ ] **Set MICROSOFT_APP_TYPE** - `"MultiTenant"` (matches App Registration configuration)
+- [ ] **Keep Current Bot Service** - Leave as UserAssignedMSI (configuration is secondary to SDK pattern)
+
+#### **Step 3: Update Code Implementation**
+- [ ] **Update src/teams/server.ts** - Support both BOT_* (local) and MICROSOFT_APP_* (Azure) variables
+- [ ] **Add Environment Detection** - Automatically choose correct variable pattern based on deployment context
+- [ ] **Update Health Checks** - Verify both authentication flows separately
+- [ ] **Remove Empty TeamsAdapter Constructor** - Replace with proper credential factory pattern
+
+#### **Step 4: Teams App Manifest Alignment** 
+- [ ] **Revert App ID in Manifest** - Back to `f076c31d-88e0-4d99-9b3f-e91016e1972c` (matches environment variables)
+- [ ] **Increment Version** - Update to 1.0.7 for new deployment
+- [ ] **Validate Manifest Structure** - Ensure compliance with Teams requirements
+
+#### **Step 5: Testing & Deployment**
+- [ ] **Run TypeScript Compilation** - Ensure no build errors with new authentication pattern
+- [ ] **Run Linting** - Verify code quality
+- [ ] **Deploy to Azure** - Commit and push changes
+- [ ] **Monitor App Service Startup** - Check logs for authentication success
+- [ ] **Test Bot Responses** - Verify messages can be sent AND received (fix current blocking error)
+
+#### **Step 6: Teams Integration Validation**
+- [ ] **Create New Teams App Package** - With corrected App ID
+- [ ] **Install Teams App** - As new installation (can't update with different App ID)
+- [ ] **Test End-to-End** - Send message, verify bot response
+- [ ] **Validate All Features** - Test Workbook tools integration
+
+**KEY INSIGHT**: We keep the current Azure infrastructure (Bot Service, App Service, Managed Identity) and fix the SDK authentication code pattern. The Bot Service configuration (UserAssignedMSI vs SingleTenant) is less important than the Teams AI SDK authentication implementation.
 
 ---
 
@@ -216,19 +283,39 @@ git push origin main
 
 **Phase 5 Complete When:**
 - [x] Teams app package created and ready for deployment ✅
-- [ ] Teams app deployed to organization via Admin Center
-- [ ] Users can install and use bot in Teams
-- [ ] Production monitoring and support processes active
+- [❌] ~~Teams app deployed to organization via Admin Center~~ **BLOCKED by authentication issue**
+- [❌] ~~Users can install and use bot in Teams~~ **BLOCKED by authentication issue**
+- [❌] ~~Production monitoring and support processes active~~ **BLOCKED by authentication issue**
 
-### 🎯 **CURRENT STATUS: READY FOR TEAMS DEPLOYMENT**
-**All technical issues resolved:**
-- ✅ **Authentication Fixed** - Correct Microsoft App Password in Key Vault
-- ✅ **Telemetry Fixed** - OpenTelemetry conflicts resolved  
-- ✅ **Environment Verified** - Bot connects to DEV Workbook environment
-- ✅ **Key Vault Working** - All secrets accessible and configured
-- ✅ **Code Quality** - No `any` types, passes all linting
-- ✅ **Teams Package Ready** - Manifest and icons compliant and tested
+**Phase 6 Complete When:**
+- [❌] ~~User-Assigned Managed Identity created and configured~~ **ABANDONED - Wrong approach**
+- [❌] ~~Bot Service updated to use Managed Identity authentication~~ **ABANDONED - Not supported**
+- [❌] ~~Teams AI SDK code updated for Managed Identity~~ **ABANDONED - Wrong approach**
+- [❌] ~~ARM template updated with Managed Identity configuration~~ **ABANDONED - Wrong approach**
+- [❌] ~~Authentication flow tested and working (bot can respond)~~ **FAILED - Wrong architecture**
+- [❌] ~~Teams integration validated end-to-end~~ **BLOCKED by wrong authentication**
+- [❌] ~~Teams app deployed to organization via Admin Center~~ **BLOCKED by wrong authentication**
+- [❌] ~~Users can install and use bot in Teams~~ **BLOCKED by wrong authentication**
 
-**Next Step**: Deploy Teams app package to Microsoft Teams Admin Center for organization-wide rollout.
+**Phase 7 Complete When:**
+- [ ] **Bot Service reverted to App Registration** - Remove UserAssignedMSI configuration
+- [ ] **TeamsAdapter with ConfigurationServiceClientCredentialFactory** - Correct authentication pattern
+- [ ] **App Service environment variables configured** - MICROSOFT_APP_* with MultiTenant type
+- [ ] **Teams App manifest updated** - Revert to original App Registration ID
+- [ ] **Code implementation complete** - Both authentication flows working
+- [ ] **Authentication flow tested** - Bot can send AND receive messages
+- [ ] **Teams integration validated** - End-to-end functionality confirmed
+- [ ] **Teams app deployed successfully** - With correct App Registration
+- [ ] **Production validation complete** - All features working in Teams
+
+### 🚨 **CURRENT STATUS: PHASE 7 IMPLEMENTATION REQUIRED**
+**Authentication Architecture Understanding Complete:**
+- ✅ **Root Cause Identified** - Two separate authentication flows were conflated
+- ✅ **Correct Pattern Discovered** - ConfigurationServiceClientCredentialFactory from working TeamsChefBot
+- ✅ **Infrastructure Ready** - App Service + Managed Identity for Azure resources is correct
+- ✅ **App Registration Ready** - Multitenant configuration is correct for Bot Framework  
+- ✅ **Implementation Plan** - Sequential steps to implement correct authentication
+
+**Next Step**: Begin Phase 7 Step 1 - Revert Bot Service to App Registration configuration.
 
 ---

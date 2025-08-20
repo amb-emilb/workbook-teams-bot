@@ -9,7 +9,7 @@ import {
   DefaultTempState,
   TeamsAdapter
 } from '@microsoft/teams-ai';
-import { MemoryStorage, TurnContext } from 'botbuilder';
+import { MemoryStorage, TurnContext, ConfigurationServiceClientCredentialFactory } from 'botbuilder';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -94,8 +94,17 @@ interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultU
 export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> {
   const planner = await initializeTeamsBot();
   
-  // Create TeamsAdapter - will automatically read MICROSOFT_APP_ID and MICROSOFT_APP_PASSWORD from environment
-  const adapter = new TeamsAdapter();
+  // Create TeamsAdapter with ConfigurationServiceClientCredentialFactory (matching TeamsChefBot pattern)
+  // Support both local development (BOT_*) and Azure production (MICROSOFT_APP_*) environment variables
+  const adapter = new TeamsAdapter(
+    {},
+    new ConfigurationServiceClientCredentialFactory({
+      MicrosoftAppType: process.env.BOT_TYPE || process.env.MICROSOFT_APP_TYPE || 'UserAssignedMSI',
+      MicrosoftAppId: process.env.BOT_ID || process.env.MICROSOFT_APP_ID,
+      MicrosoftAppPassword: process.env.BOT_PASSWORD || process.env.MICROSOFT_APP_PASSWORD,
+      MicrosoftAppTenantId: process.env.BOT_TENANT_ID || process.env.MICROSOFT_APP_TENANT_ID
+    })
+  );
     
   return new Application<WorkbookTurnState>({
     adapter,
