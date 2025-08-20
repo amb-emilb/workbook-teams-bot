@@ -62,6 +62,13 @@
       "metadata": {
         "description": "Object ID of the service principal used for deployment (GitHub Actions)"
       }
+    },
+    "userPrincipalId": {
+      "type": "string",
+      "defaultValue": "227b3083-abef-4539-bbf8-11f60388093f",
+      "metadata": {
+        "description": "Object ID of the user who needs access to Key Vault"
+      }
     }
   },
   "variables": {
@@ -85,7 +92,20 @@
         "enabledForDiskEncryption": false,
         "enabledForDeployment": false,
         "enableRbacAuthorization": false,
-        "accessPolicies": []
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[parameters('userPrincipalId')]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list",
+                "set",
+                "delete"
+              ]
+            }
+          }
+        ]
       }
     },
     {
