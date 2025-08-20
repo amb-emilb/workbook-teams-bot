@@ -30,17 +30,10 @@ async function initializeServer() {
   console.log('Initializing Teams AI server...');
     
   try {
-    // Set environment variables from Key Vault for Teams AI SDK
-    const [appId, appPassword] = await Promise.all([
-      keyVaultService.getSecret('microsoft-app-id'),
-      keyVaultService.getSecret('microsoft-app-password')
-    ]);
-
-    // Set environment variables that Teams AI SDK will automatically read
-    process.env.MICROSOFT_APP_ID = appId;
-    process.env.MICROSOFT_APP_PASSWORD = appPassword;
-    
-    console.log('✅ Environment variables set for Teams AI SDK');
+    // For User-Assigned Managed Identity, Teams AI SDK reads MICROSOFT_APP_ID and MICROSOFT_APP_TYPE from environment
+    // App Service already has these configured: MICROSOFT_APP_ID=1a915ea6... and MICROSOFT_APP_TYPE=UserAssignedMSI
+    // No password needed - Azure handles authentication automatically
+    console.log('✅ Using User-Assigned Managed Identity authentication');
 
     // Initialize Teams AI application (includes TeamsAdapter)
     const teamsApp = await createConfiguredTeamsBot();
@@ -158,21 +151,19 @@ async function startServer() {
             healthCheck.status = 'degraded';
           }
 
-          // Test bot credentials availability
+          // Test bot authentication configuration (User-Assigned Managed Identity)
           try {
-            const botCredentialsTest = await Promise.all([
-              keyVaultService.getSecret('microsoft-app-id').catch(() => null),
-              keyVaultService.getSecret('microsoft-app-password').catch(() => null)
-            ]);
+            const appId = process.env.MICROSOFT_APP_ID;
+            const appType = process.env.MICROSOFT_APP_TYPE;
             
-            if (botCredentialsTest[0] && botCredentialsTest[1]) {
-              healthCheck.checks.botCredentials = { status: 'healthy', message: 'Bot credentials available' };
+            if (appId && appType === 'UserAssignedMSI') {
+              healthCheck.checks.botCredentials = { status: 'healthy', message: 'User-Assigned Managed Identity configured' };
             } else {
-              healthCheck.checks.botCredentials = { status: 'error', message: 'Missing bot credentials' };
+              healthCheck.checks.botCredentials = { status: 'error', message: 'Missing Managed Identity configuration' };
               healthCheck.status = 'degraded';
             }
           } catch {
-            healthCheck.checks.botCredentials = { status: 'error', message: 'Cannot access bot credentials' };
+            healthCheck.checks.botCredentials = { status: 'error', message: 'Cannot check bot authentication' };
             healthCheck.status = 'degraded';
           }
 
@@ -253,7 +244,7 @@ async function startServer() {
       console.log('Production URL: https://workbook-teams-bot.azurewebsites.net');
       console.log('='.repeat(50));
       console.log('Environment:', process.env.NODE_ENV || 'development');
-      console.log('Authentication: Teams AI SDK with environment variables');
+      console.log('Authentication: User-Assigned Managed Identity');
       console.log('='.repeat(50));
     });
 
