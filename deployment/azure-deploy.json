@@ -180,17 +180,8 @@
           "alwaysOn": false,
           "webSocketsEnabled": true,
           "appCommandLine": "npm start",
-          "ipSecurityRestrictions": [
-            {
-              "ipAddress": "AzureBotService",
-              "action": "Allow",
-              "tag": "ServiceTag",
-              "priority": 100,
-              "name": "AzureBotService",
-              "description": "Allow Azure Bot Service"
-            }
-          ],
-          "ipSecurityRestrictionsDefaultAction": "Deny",
+          "ipSecurityRestrictions": [],
+          "ipSecurityRestrictionsDefaultAction": "Allow",
           "healthCheckPath": "/health"
         }
       }
@@ -269,7 +260,7 @@
         "iconUrl": "https://docs.botframework.com/static/devportal/client/images/bot-framework-default.png",
         "endpoint": "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('appServiceName'))).defaultHostName, '/api/messages')]",
         "msaAppId": "[parameters('botAppId')]",
-        "msaAppType": "SingleTenant",
+        "msaAppType": "MultiTenant",
         "msaAppTenantId": "[parameters('tenantId')]",
         "luisAppIds": [],
         "schemaTransformationVersion": "1.3",
