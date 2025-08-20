@@ -1,8 +1,8 @@
 import * as restify from 'restify';
-import { BotFrameworkAdapter } from 'botbuilder';
 import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
+import { TurnContext, CloudAdapter } from 'botbuilder';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -24,54 +24,28 @@ initializeTelemetry();
  */
 
 /**
- * Initialize server with Key Vault secrets
+ * Initialize server with environment variables for Teams AI
  */
 async function initializeServer() {
-  console.log('Initializing server with Key Vault secrets...');
+  console.log('Initializing Teams AI server...');
     
   try {
-    // Get Microsoft Bot credentials from Key Vault
+    // Set environment variables from Key Vault for Teams AI SDK
     const [appId, appPassword] = await Promise.all([
       keyVaultService.getSecret('microsoft-app-id'),
       keyVaultService.getSecret('microsoft-app-password')
     ]);
 
-    // Create Bot Framework Adapter with Key Vault credentials and strict authentication
-    const adapter = new BotFrameworkAdapter({
-      appId,
-      appPassword,
-      // Enable strict authentication - only accept requests from Microsoft Bot Connector
-      channelService: process.env.ChannelService || undefined
-      // The adapter will automatically validate JWT tokens from Microsoft
-      // Additional validation is handled in the /api/messages endpoint
-    });
+    // Set environment variables that Teams AI SDK will automatically read
+    process.env.MICROSOFT_APP_ID = appId;
+    process.env.MICROSOFT_APP_PASSWORD = appPassword;
+    
+    console.log('✅ Environment variables set for Teams AI SDK');
 
-    // Error handler for the adapter
-    adapter.onTurnError = async (context, error) => {
-      console.error('Bot Framework Adapter Error:', error);
-            
-      // Track exception in Application Insights
-      trackException(error as Error, {
-        activityType: context.activity?.type,
-        userId: context.activity?.from?.id,
-        conversationId: context.activity?.conversation?.id
-      });
-            
-      // Send a message to the user
-      await context.sendActivity('Sorry, I encountered an error processing your request.');
-            
-      // Log the error details
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        activity: context.activity
-      });
-    };
-
-    // Initialize Teams bot
+    // Initialize Teams AI application (includes TeamsAdapter)
     const teamsApp = await createConfiguredTeamsBot();
 
-    return { adapter, teamsApp };
+    return { teamsApp };
   } catch (error) {
     console.error('Failed to initialize server:', error);
     throw error;
@@ -83,8 +57,8 @@ async function initializeServer() {
  */
 async function startServer() {
   try {
-    // Initialize server with Key Vault secrets
-    const { adapter, teamsApp } = await initializeServer();
+    // Initialize server with Teams AI
+    const { teamsApp } = await initializeServer();
 
     // Create Restify server
     const server = restify.createServer({
@@ -228,7 +202,7 @@ async function startServer() {
       })();
     });
 
-    // Bot Framework messages endpoint with authentication validation
+    // Teams AI messages endpoint - uses integrated TeamsAdapter
     server.post('/api/messages', async (req, res) => {
       try {
         // Log incoming request details for security monitoring
@@ -238,38 +212,21 @@ async function startServer() {
           source: req.headers['x-forwarded-for'] || req.connection.remoteAddress
         });
 
-        // SECURITY: Validate that request has proper Bot Framework authentication
-        // The BotFrameworkAdapter will validate the JWT token, but we add extra checks
-        if (!req.headers.authorization) {
-          console.warn('SECURITY: Rejected request without Authorization header');
-          res.status(401);
-          res.json({ 
-            error: 'Unauthorized Access. Request is not authorized',
-            message: 'This endpoint only accepts requests from Microsoft Bot Connector'
-          });
-          return;
-        }
-
-        // Additional validation: Check for Bot Framework specific headers
-        const userAgent = req.headers['user-agent'] || '';
-        const hasValidUserAgent = userAgent.includes('Microsoft-BotFramework') || 
-                                   userAgent.includes('Microsoft-SkypeBotApi') ||
-                                   userAgent.includes('Microsoft-Teams');
-        
-        if (!hasValidUserAgent && process.env.NODE_ENV === 'production') {
-          console.warn('SECURITY: Suspicious User-Agent detected:', userAgent);
-          // In production, we might want to reject these requests
-          // For now, log but allow the adapter to handle validation
-        }
-
-        // Process the request through Bot Framework Adapter
-        // The adapter will perform JWT validation and reject invalid tokens
-        await adapter.process(req, res, async (context) => {
-          // Only run the bot if we get here (authentication passed)
+        // Teams AI SDK handles authentication internally via TeamsAdapter
+        // Process the request through Teams AI application
+        const adapter = teamsApp.adapter as CloudAdapter;
+        await adapter.process(req, res, async (context: TurnContext) => {
+          // Teams AI application will handle the request
           await teamsApp.run(context);
         });
       } catch (error) {
         console.error('Error processing bot message:', error);
+        
+        // Track exception in Application Insights
+        trackException(error as Error, {
+          endpoint: '/api/messages',
+          source: req.headers['x-forwarded-for'] || req.connection.remoteAddress
+        });
         
         // Don't leak internal errors to potential attackers
         if (!res.headersSent) {
@@ -296,7 +253,7 @@ async function startServer() {
       console.log('Production URL: https://workbook-teams-bot.azurewebsites.net');
       console.log('='.repeat(50));
       console.log('Environment:', process.env.NODE_ENV || 'development');
-      console.log('Credentials: Loaded from Azure Key Vault');
+      console.log('Authentication: Teams AI SDK with environment variables');
       console.log('='.repeat(50));
     });
 

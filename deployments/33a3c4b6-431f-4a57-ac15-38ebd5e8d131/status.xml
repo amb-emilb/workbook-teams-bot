@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>33a3c4b6-431f-4a57-ac15-38ebd5e8d131</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"2983fced4e0db02d24368e05245097383f47d4f1","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"Fix EasyAuth ARM template configuration using proper Microsoft.Web/sites/config/authsettingsV2 resource\n\n- Remove invalid authSettings from App Service siteConfig\n- Add proper Microsoft.Web/sites/config/authsettingsV2 resource as per official Microsoft documentation\n- Enable EasyAuth platform with AllowAnonymous global validation\n- Configure HTTPS requirement and /.auth API prefix\n\nResolves ARM deployment error: AppSetting with name 'WEBSITE_AUTH_ENABLED' is not allowed\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude &lt;noreply@anthropic.com&gt;"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-19T09:21:27.0336206Z</lastSuccessEndTime>
+  <receivedTime>2025-08-19T09:20:00.6871411Z</receivedTime>
+  <startTime>2025-08-19T09:20:03.6354301Z</startTime>
+  <endTime>2025-08-19T09:21:27.0336206Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

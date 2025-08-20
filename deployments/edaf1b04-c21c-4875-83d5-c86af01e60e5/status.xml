@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>edaf1b04-c21c-4875-83d5-c86af01e60e5</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"e5654d5dfddd4ce2e1ec1825dcab0b25861cdd99","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"CRITICAL SECURITY FIX: Enforce authentication on Teams bot endpoint\n\n- Add Authorization header validation to reject unauthorized requests\n- Implement rate limiting (100 requests/minute per IP)\n- Add security headers (X-Frame-Options, HSTS, etc.)\n- Add User-Agent validation for Bot Framework requests\n- Improve error handling to prevent information leakage\n- Add comprehensive request logging for security monitoring\n\nThis fixes the critical vulnerability where the bot endpoint was accessible\nto anyone on the internet without proper authentication."}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-19T08:05:25.4983229Z</lastSuccessEndTime>
+  <receivedTime>2025-08-19T08:04:11.0421557Z</receivedTime>
+  <startTime>2025-08-19T08:04:12.6417518Z</startTime>
+  <endTime>2025-08-19T08:05:25.4983229Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

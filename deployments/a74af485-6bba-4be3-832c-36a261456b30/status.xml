@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>a74af485-6bba-4be3-832c-36a261456b30</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"0429e002ecc284fe730e58d1efe4bef225dd58f8","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"Remove any types from telemetry code\n\n- Remove problematic context property setting that used any types\n- Simplify telemetry initialization to avoid TypeScript conflicts\n- Maintain core telemetry functionality without type violations\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude &lt;noreply@anthropic.com&gt;"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-20T11:08:59.8804678Z</lastSuccessEndTime>
+  <receivedTime>2025-08-20T11:06:54.5594768Z</receivedTime>
+  <startTime>2025-08-20T11:06:56.7805956Z</startTime>
+  <endTime>2025-08-20T11:08:59.8804678Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

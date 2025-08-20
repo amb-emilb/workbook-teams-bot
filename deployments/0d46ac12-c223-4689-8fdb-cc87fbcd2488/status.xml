@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>0d46ac12-c223-4689-8fdb-cc87fbcd2488</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"cd93221233149af93741d938f641e6fc45668cbd","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"Fix Teams bot authentication architecture\n\nReplace BotFrameworkAdapter with TeamsAdapter to resolve authorization errors:\n- Updated TeamsAdapter configuration with proper credential handling\n- Modified Teams AI Application to accept adapter and botAppId parameters\n- Fixed message processing to use adapter.process() with teamsApp.run()\n- Removed unused appPassword variable and fixed ESLint issues\n- Maintains existing Key Vault integration and security features\n\nThis addresses the fundamental architectural mismatch that was causing\n\"Authorization has been denied\" errors when bot tried to send responses.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude &lt;noreply@anthropic.com&gt;"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-20T14:56:58.2338448Z</lastSuccessEndTime>
+  <receivedTime>2025-08-20T14:55:41.3135602Z</receivedTime>
+  <startTime>2025-08-20T14:55:42.7917765Z</startTime>
+  <endTime>2025-08-20T14:56:58.2338448Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

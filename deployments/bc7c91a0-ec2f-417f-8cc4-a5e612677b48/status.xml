@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>bc7c91a0-ec2f-417f-8cc4-a5e612677b48</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"913aeb5cc6cd0b19db5bab739e958786fbecb3bc","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"Add IP restrictions to ARM template to persist security configuration\n\n- Add AzureBotService service tag to allow Bot Framework traffic\n- Set default action to Deny for all other traffic\n- Ensures IP restrictions persist across deployments\n- Prevents accidental removal of security configuration"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-19T13:03:39.4368916Z</lastSuccessEndTime>
+  <receivedTime>2025-08-19T13:01:46.7728283Z</receivedTime>
+  <startTime>2025-08-19T13:01:48.3767731Z</startTime>
+  <endTime>2025-08-19T13:03:39.4368916Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

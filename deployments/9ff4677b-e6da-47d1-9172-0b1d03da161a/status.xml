@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>9ff4677b-e6da-47d1-9172-0b1d03da161a</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"49f09048cf242d1a50ee3e8c8ab065627b1b24a0","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"CRITICAL FIX: Correct ARM template configuration for bot authentication\n\n- Remove ipSecurityRestrictions that blocked all Teams traffic\n- Change default action from Deny to Allow to prevent traffic blocking\n- Fix msaAppType from SingleTenant to MultiTenant to match Azure AD App Registration\n- This resolves both message reception and bot reply authentication issues\n- Prevents future deployments from breaking Teams connectivity\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude &lt;noreply@anthropic.com&gt;"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-20T11:31:30.9321793Z</lastSuccessEndTime>
+  <receivedTime>2025-08-20T11:30:28.1077307Z</receivedTime>
+  <startTime>2025-08-20T11:30:29.636843Z</startTime>
+  <endTime>2025-08-20T11:31:30.9321793Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

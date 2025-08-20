@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>b5ec7306-7350-4825-8108-0583423bebe7</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"4da6ff6c25840940e51e9d3337b27bcaa16b81a5","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"Add comprehensive security configurations to ARM template\n\n- Configure IP restrictions with AzureBotService service tag\n- Set minimum TLS version to 1.2 for main and SCM sites\n- Disable FTP completely (ftpsState: Disabled)\n- Enable HTTP/2 for better performance\n- Set default deny for IP restrictions\n- Fix Bot Service API version (2017-12-01) and kind (bot)\n- Remove duplicate configuration entries\n\nThese settings ensure security configurations persist across deployments"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-19T08:45:14.7493874Z</lastSuccessEndTime>
+  <receivedTime>2025-08-19T08:44:04.5263595Z</receivedTime>
+  <startTime>2025-08-19T08:44:06.2636605Z</startTime>
+  <endTime>2025-08-19T08:45:14.7493874Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

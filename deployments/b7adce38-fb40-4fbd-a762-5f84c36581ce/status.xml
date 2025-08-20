@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>b7adce38-fb40-4fbd-a762-5f84c36581ce</id>
+  <author>N/A</author>
+  <deployer>GITHUB_ZIP_DEPLOY</deployer>
+  <authorEmail>N/A</authorEmail>
+  <message>{"type":"deployment","sha":"47800829241fa43f1ca6becce475655ed0ef688c","repoName":"amb-emilb/workbook-teams-bot","actor":"amb-emilb","slotName":"production","commitMessage":"SECURITY: Implement proper network-level Bot Framework security\n\n- Add Azure internal health monitoring with healthCheckPath\n- Replace external health check with Azure CLI deployment verification\n- Maintain IP restrictions for Bot Framework security\n- Enable Azure portal monitoring while securing endpoints\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude &lt;noreply@anthropic.com&gt;"}</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-08-19T13:14:53.4767115Z</lastSuccessEndTime>
+  <receivedTime>2025-08-19T13:13:07.239024Z</receivedTime>
+  <startTime>2025-08-19T13:13:09.3657968Z</startTime>
+  <endTime>2025-08-19T13:14:53.4767115Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>True</is_readonly>
+  <buildSummary />
+</deployment>

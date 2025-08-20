@@ -6,7 +6,8 @@ import {
   TurnState,
   DefaultConversationState,
   DefaultUserState,
-  DefaultTempState
+  DefaultTempState,
+  TeamsAdapter
 } from '@microsoft/teams-ai';
 import { MemoryStorage, TurnContext } from 'botbuilder';
 import * as path from 'path';
@@ -92,8 +93,12 @@ interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultU
  */
 export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> {
   const planner = await initializeTeamsBot();
+  
+  // Create TeamsAdapter - will automatically read MICROSOFT_APP_ID and MICROSOFT_APP_PASSWORD from environment
+  const adapter = new TeamsAdapter();
     
   return new Application<WorkbookTurnState>({
+    adapter,
     storage,
     ai: {
       planner
