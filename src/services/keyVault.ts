@@ -28,8 +28,8 @@ class KeyVaultService {
     // Map secret names to environment variable names
     const envVarMapping: Record<string, string> = {
       'openai-api-key': 'OPENAI_API_KEY',
-      'microsoft-app-id': 'MICROSOFT_APP_ID',
-      'microsoft-app-password': 'MICROSOFT_APP_PASSWORD',
+      'microsoft-app-id': 'BotAppId',
+      'microsoft-app-password': 'BotAppPassword',
       'workbook-api-key-dev': 'WORKBOOK_API_KEY_DEV',
       'workbook-api-key-prod': 'WORKBOOK_API_KEY_PROD',
       'workbook-password-dev': 'WORKBOOK_PASSWORD_DEV',

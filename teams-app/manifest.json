@@ -44,10 +44,6 @@
         "ambition.dk",
         "ambitiondemo.workbook.net"
     ],
-    "webApplicationInfo": {
-        "id": "f076c31d-88e0-4d99-9b3f-e91016e1972c",
-        "resource": "https://graph.microsoft.com/"
-    },
     "showLoadingIndicator": true,
     "isFullScreen": false,
     "activities": {
