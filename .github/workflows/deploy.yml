@@ -152,71 +152,41 @@ jobs:
           --name ${{ vars.RESOURCE_GROUP }} \
           --location westeurope
         
-    - name: Deploy Azure Infrastructure
+    - name: Skip Infrastructure Deployment (Manual Setup)
       run: |
-        echo "Starting ARM template deployment..."
+        echo "⚠️ ARM template deployment DISABLED - using manual Azure resource configuration"
+        echo "Infrastructure managed manually:"
+        echo "  ✅ User-Assigned Managed Identity: workbook-teams-bot-identity"
+        echo "  ✅ Bot Service: workbook-teams-bot (UserAssignedMSI)"
+        echo "  ✅ App Service: ${{ vars.AZURE_WEBAPP_NAME }}"
+        echo "  ✅ Key Vault: ${{ vars.KEY_VAULT_NAME }}"
+        echo "  ✅ Application Insights: workbook-bot-insights"
         
-        # Get current service principal object ID for Key Vault access
-        CURRENT_PRINCIPAL_ID=$(az ad signed-in-user show --query id --output tsv 2>/dev/null || \
-                              az account show --query user.name --output tsv | xargs az ad sp show --id | jq -r .id 2>/dev/null || \
-                              echo "")
+        # Verify resources exist
+        echo "Verifying critical resources..."
         
-        echo "Service Principal ID: $CURRENT_PRINCIPAL_ID"
-        
-        # Run deployment with full JSON output for error diagnostics
-        DEPLOYMENT_RESULT=$(az deployment group create \
-          --resource-group ${{ vars.RESOURCE_GROUP }} \
-          --template-file deployment/azure-deploy.json \
-          --parameters \
-            appServiceName=${{ vars.AZURE_WEBAPP_NAME }} \
-            keyVaultName=${{ vars.KEY_VAULT_NAME }} \
-            botAppId=${{ secrets.MICROSOFT_APP_ID }} \
-            botAppPassword=${{ secrets.MICROSOFT_APP_PASSWORD }} \
-            deploymentPrincipalId="$CURRENT_PRINCIPAL_ID" \
-          --output json)
-        
-        # Extract deployment status
-        DEPLOYMENT_STATUS=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.provisioningState // "Unknown"')
-        
-        echo "Deployment Status: $DEPLOYMENT_STATUS"
-        
-        if [ "$DEPLOYMENT_STATUS" != "Succeeded" ]; then
-          echo "::error::ARM deployment failed with status: $DEPLOYMENT_STATUS"
-          
-          # Extract detailed error information
-          ERROR_CODE=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.error.code // "N/A"')
-          ERROR_MESSAGE=$(echo "$DEPLOYMENT_RESULT" | jq -r '.properties.error.message // "N/A"')
-          
-          echo "::error::Error Code: $ERROR_CODE"
-          echo "::error::Error Message: $ERROR_MESSAGE"
-          
-          # Check for specific resource deployment failures
-          echo "Checking individual resource deployment status..."
-          az deployment operation group list \
-            --resource-group ${{ vars.RESOURCE_GROUP }} \
-            --name $(echo "$DEPLOYMENT_RESULT" | jq -r '.name') \
-            --query "[?properties.provisioningState=='Failed'].{resource:properties.targetResource.resourceName,type:properties.targetResource.resourceType,error:properties.statusMessage}" \
-            --output table
-          
+        # Check App Service
+        if az webapp show --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_WEBAPP_NAME }} >/dev/null 2>&1; then
+          echo "✅ App Service exists"
+        else
+          echo "❌ App Service not found"
           exit 1
         fi
         
-        echo "✅ Infrastructure deployment succeeded"
-        
-        # Verify critical resources are ready
-        echo "Verifying deployed resources..."
-        
-        # Check App Service
-        APP_STATE=$(az webapp show --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_WEBAPP_NAME }} --query "state" --output tsv)
-        echo "App Service State: $APP_STATE"
-        
         # Check Key Vault
-        KV_STATE=$(az keyvault show --name ${{ vars.KEY_VAULT_NAME }} --query "properties.provisioningState" --output tsv)
-        echo "Key Vault State: $KV_STATE"
+        if az keyvault show --name ${{ vars.KEY_VAULT_NAME }} >/dev/null 2>&1; then
+          echo "✅ Key Vault exists"
+        else
+          echo "❌ Key Vault not found"
+          exit 1
+        fi
         
-        if [ "$KV_STATE" != "Succeeded" ]; then
-          echo "::warning::Key Vault not ready yet, waiting 30 seconds for provisioning to complete..."
-          sleep 30
+        # Check Bot Service
+        if az bot show --resource-group ${{ vars.RESOURCE_GROUP }} --name ${{ vars.AZURE_WEBAPP_NAME }} >/dev/null 2>&1; then
+          echo "✅ Bot Service exists"
+        else
+          echo "❌ Bot Service not found"
+          exit 1
         fi
         
     - name: Configure Key Vault secrets
