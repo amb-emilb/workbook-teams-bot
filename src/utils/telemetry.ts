@@ -25,7 +25,15 @@ export function initializeTelemetry(): void {
   }
 
   try {
-    // Setup Application Insights
+    // Check if Application Insights is already initialized by App Service
+    if (appInsights.defaultClient) {
+      console.log('Application Insights already initialized by Azure App Service');
+      telemetryClient = appInsights.defaultClient;
+      isInitialized = true;
+      return;
+    }
+
+    // Setup Application Insights manually
     appInsights.setup(connectionString)
       .setAutoDependencyCorrelation(true)
       .setAutoCollectRequests(true)
@@ -43,14 +51,25 @@ export function initializeTelemetry(): void {
     // Get the default client
     telemetryClient = appInsights.defaultClient;
 
-    // Set custom properties for all telemetry
-    telemetryClient.context.tags[telemetryClient.context.keys.applicationVersion] = process.env.npm_package_version || '1.0.0';
-    telemetryClient.context.tags[telemetryClient.context.keys.cloudRole] = 'WorkbookTeamsBot';
+    // Set custom properties for all telemetry (with null check)
+    if (telemetryClient) {
+      try {
+        const client = telemetryClient as any;
+        if (client.context && client.context.tags && client.context.keys) {
+          client.context.tags[client.context.keys.applicationVersion] = process.env.npm_package_version || '1.0.0';
+          client.context.tags[client.context.keys.cloudRole] = 'WorkbookTeamsBot';
+        }
+      } catch (contextError) {
+        console.warn('Could not set telemetry context properties:', contextError);
+      }
+    }
         
     isInitialized = true;
-    console.log('Application Insights initialized');
+    console.log('Application Insights initialized successfully');
   } catch (error) {
     console.error('Failed to initialize Application Insights:', error);
+    // Continue without telemetry rather than crashing
+    isInitialized = true; // Mark as initialized to prevent retry loops
   }
 }
 

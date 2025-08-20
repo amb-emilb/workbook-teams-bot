@@ -36,15 +36,16 @@ class KeyVaultService {
       'workbook-password-prod': 'WORKBOOK_PASSWORD_PROD'
     };
 
-    // In local development mode, prefer environment variables
-    const isLocalDev = process.env.NODE_ENV === 'dev' && process.env.OPENAI_API_KEY;
+    // Only use environment variables for true local development (no Key Vault available)
+    // This detects if we're running locally vs in Azure App Service
+    const isLocalDev = !process.env.KEY_VAULT_NAME && process.env.OPENAI_API_KEY;
     
     if (isLocalDev && envVarMapping[secretName]) {
       const envVar = envVarMapping[secretName];
       const envValue = process.env[envVar];
       
       if (envValue) {
-        console.log(`Using environment variable for secret: ${secretName} (from ${envVar})`);
+        console.log(`🏠 LOCAL DEV: Using environment variable for secret: ${secretName} (from ${envVar})`);
         return envValue;
       }
     }
@@ -66,7 +67,7 @@ class KeyVaultService {
         const envValue = process.env[envVar];
         
         if (envValue) {
-          console.log(`Key Vault failed, falling back to environment variable: ${secretName} (from ${envVar})`);
+          console.log(`⚠️  FALLBACK: Key Vault failed, using environment variable: ${secretName} (from ${envVar})`);
           return envValue;
         }
       }
