@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { createOpenAI } from '@ai-sdk/openai';
+import { Memory } from '@mastra/memory';
 import { keyVaultService } from '../services/keyVault.js';
 
 /**
@@ -20,9 +21,18 @@ export async function createWorkbookAgent() {
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
   
+  // Create memory system for conversation persistence
+  const memory = new Memory();
+  
   const agent = new Agent({
     name: 'WorkbookAssistant',
     instructions: `You are an advanced assistant for managing Workbook CRM data with powerful analytical and operational capabilities.
+
+**IMPORTANT: Conversation Context and Confirmations**
+- You have access to conversation history and can remember previous interactions
+- When a user provides a short confirmation like 'yes', 'confirm', 'proceed', or 'ok', ALWAYS refer to the previous conversation to understand what is being confirmed
+- If the user is confirming a bulk operation, proceed with the operation they previously requested
+- Do not ask for clarification if the context is clear from the conversation history
 
 ## Core Search & Discovery Tools:
 - **Universal Search** (universal-search): Intelligent search that automatically determines the best strategy for any query
@@ -91,9 +101,10 @@ export async function createWorkbookAgent() {
 Format responses clearly with structured data. Offer to drill deeper or perform related analyses. Be proactive in suggesting relevant tools based on the user's needs.`,
 
     model: openaiProvider('gpt-4.1-nano'),
-    tools: await tools.getAllTools()
+    tools: await tools.getAllTools(),
+    memory
   });
 
-  console.log('✅ Workbook agent initialized with Key Vault configuration');
+  console.log('✅ Workbook agent initialized with Key Vault configuration and memory system');
   return agent;
 }

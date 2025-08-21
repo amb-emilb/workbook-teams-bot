@@ -141,9 +141,9 @@ console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, Mo
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
  * This allows our existing 12 tools to work seamlessly with Teams
- * Now includes persistent conversation context via Teams AI SDK state
+ * Now includes persistent conversation context via Mastra's native memory system
  */
-async function executeMastraAgent(message: string, state: WorkbookTurnState) {
+async function executeMastraAgent(message: string, state: WorkbookTurnState, context: TurnContext) {
   const startTime = Date.now();
   try {
     console.log('[AGENT EXECUTION] Bridging Teams AI to Mastra Agent', { 
@@ -208,32 +208,21 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState) {
 
     console.log('Input validated and sanitized');
 
-    // Get or initialize conversation context from Teams AI SDK state
-    if (!state.workbookContext) {
-      state.workbookContext = {};
-    }
-    if (!state.workbookContext.conversationHistory) {
-      state.workbookContext.conversationHistory = [];
-    }
+    // Get Teams context for Mastra memory system
+    const threadId = context.activity.conversation?.id || 'default-thread';
+    const resourceId = context.activity.from?.id || 'default-user';
 
-    // Build messages with conversation history (last 20 messages = 10 exchanges)
-    const conversationHistory = state.workbookContext.conversationHistory;
-    const messages = [
-      ...conversationHistory.slice(-20).map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      })),
-      { role: 'user' as const, content: queryValidation.sanitized }
-    ];
-
-    console.log('[CONVERSATION CONTEXT] Using conversation history', {
-      historyLength: conversationHistory.length,
-      messagesInContext: messages.length - 1, // Exclude current message
-      contextPreview: messages.slice(-3, -1).map(m => `${m.role}: ${m.content.substring(0, 50)}...`)
+    console.log('[MASTRA MEMORY] Using native Mastra memory system', {
+      threadId: threadId.substring(0, 20) + '...',
+      resourceId: resourceId.substring(0, 20) + '...',
+      message: queryValidation.sanitized.substring(0, 50) + '...'
     });
 
-    // Execute our existing Mastra agent with conversation context
-    const response = await cachedWorkbookAgent.generate(messages);
+    // Execute our existing Mastra agent with native memory system
+    const response = await cachedWorkbookAgent.generate(queryValidation.sanitized, {
+      threadId,
+      resourceId
+    });
 
     // Extract the response text
     let responseText = '';
@@ -243,25 +232,12 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState) {
       responseText = 'I completed the task successfully.';
     }
 
-    // Update conversation history with both user message and assistant response
-    conversationHistory.push(
-      { role: 'user', content: queryValidation.sanitized, timestamp: new Date() },
-      { role: 'assistant', content: responseText, timestamp: new Date() }
-    );
-
-    // Keep only last 50 exchanges (100 messages) to prevent memory bloat
-    if (conversationHistory.length > 100) {
-      conversationHistory.splice(0, conversationHistory.length - 100);
-    }
-
-    // Update the state (Teams AI SDK automatically persists this)
-    state.workbookContext.conversationHistory = conversationHistory;
-
     const duration = Date.now() - startTime;
-    console.log('[AGENT RESPONSE] Mastra agent response received with context updated', { 
+    console.log('[AGENT RESPONSE] Mastra agent response received with native memory', { 
       responseLength: responseText.length,
       duration: duration,
-      historyLength: conversationHistory.length,
+      threadId: threadId.substring(0, 20) + '...',
+      resourceId: resourceId.substring(0, 20) + '...',
       preview: responseText.substring(0, 100) 
     });
     return responseText;
@@ -291,7 +267,7 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
 
     try {
       // Bridge to our existing Mastra agent with persistent conversation context
-      const response = await executeMastraAgent(message, state);
+      const response = await executeMastraAgent(message, state, context);
             
       // Store additional context for future turns (conversation history is managed in executeMastraAgent)
       if (!state.workbookContext) {
