@@ -27,6 +27,7 @@
         "@azure/identity": "^4.11.1",
         "@azure/keyvault-secrets": "^4.10.0",
         "@mastra/core": "^0.14.0",
+        "@mastra/libsql": "^0.13.3",
         "@mastra/memory": "^0.13.0",
         "@microsoft/teams-ai": "^1.7.4",
         "@types/restify": "^8.5.12",

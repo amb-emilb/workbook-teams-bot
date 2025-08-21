@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
+import { LibSQLStore } from '@mastra/libsql';
 import { keyVaultService } from '../services/keyVault.js';
 
 /**
@@ -21,8 +22,22 @@ export async function createWorkbookAgent() {
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
   
-  // Create memory system for conversation persistence
-  const memory = new Memory();
+  // Create memory system for conversation persistence with LibSQL storage
+  const memory = new Memory({
+    storage: new LibSQLStore({
+      url: 'file:./memory.db'
+    }),
+    options: {
+      lastMessages: 20,
+      semanticRecall: {
+        topK: 3,
+        messageRange: {
+          before: 2,
+          after: 1
+        }
+      }
+    }
+  });
   
   const agent = new Agent({
     name: 'WorkbookAssistant',
