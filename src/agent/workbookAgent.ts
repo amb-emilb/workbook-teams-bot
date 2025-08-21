@@ -90,7 +90,7 @@ export async function createWorkbookAgent() {
 
 Format responses clearly with structured data. Offer to drill deeper or perform related analyses. Be proactive in suggesting relevant tools based on the user's needs.`,
 
-    model: openaiProvider('gpt-4-turbo'),
+    model: openaiProvider('gpt-4.1-nano'),
     tools: await tools.getAllTools()
   });
 

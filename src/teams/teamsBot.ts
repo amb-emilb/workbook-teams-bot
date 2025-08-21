@@ -21,6 +21,7 @@ import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
+import { logger } from '../services/logger.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -42,7 +43,7 @@ const storage = new MemoryStorage();
  * Initialize Teams bot with Key Vault secrets
  */
 async function initializeTeamsBot() {
-  console.log('🔐 Initializing Teams bot with Key Vault secrets...');
+  logger.info('Initializing Teams bot with Key Vault secrets...');
     
   try {
     // Get OpenAI API key from Key Vault
@@ -71,7 +72,7 @@ async function initializeTeamsBot() {
 
     return configuredPlanner;
   } catch (error) {
-    console.error('❌ Failed to initialize Teams bot:', error);
+    logger.error('Failed to initialize Teams bot', { error });
     throw error;
   }
 }
@@ -128,20 +129,20 @@ let cachedWorkbookAgent: Agent | null = null;
  * This allows our existing 12 tools to work seamlessly with Teams
  */
 async function executeMastraAgent(message: string) {
+  const startTime = Date.now();
   try {
-    console.log('🔄 Bridging Teams AI → Mastra Agent');
-    console.log('📝 User message:', message);
+    logger.debug('Bridging Teams AI to Mastra Agent', { message: message.substring(0, 100) });
 
     // Initialize agent if not cached
     if (!cachedWorkbookAgent) {
-      console.log('🔧 Initializing Workbook agent...');
+      logger.info('Initializing Workbook agent for first use');
       cachedWorkbookAgent = await createWorkbookAgent();
     }
 
     // SECURITY: Input validation and sanitization
     // Check for prompt injection attempts
     if (detectPromptInjection(message)) {
-      console.warn('⚠️ Potential prompt injection detected:', message);
+      logger.logSecurity('Potential prompt injection detected', { message });
       return 'Your request contains invalid patterns. Please rephrase your query.';
     }
 
@@ -151,11 +152,11 @@ async function executeMastraAgent(message: string) {
     // Validate if it's a search query
     const queryValidation = validateSearchQuery(sanitizedMessage);
     if (!queryValidation.valid) {
-      console.warn('❌ Invalid query:', queryValidation.error);
+      logger.warn('Invalid query', { error: queryValidation.error });
       return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
     }
 
-    console.log('✅ Input validated and sanitized');
+    logger.debug('Input validated and sanitized');
 
     // Execute our existing Mastra agent with sanitized input
     const response = await cachedWorkbookAgent.generate([
@@ -170,11 +171,20 @@ async function executeMastraAgent(message: string) {
       responseText = 'I completed the task successfully.';
     }
 
-    console.log('✅ Mastra agent response:', responseText.substring(0, 200) + '...');
+    const duration = Date.now() - startTime;
+    logger.debug('Mastra agent response received', { 
+      responseLength: responseText.length,
+      preview: responseText.substring(0, 100) 
+    });
+    logger.logPerformance('mastra_agent_execution', duration, {
+      messageLength: message.length,
+      responseLength: responseText.length
+    });
     return responseText;
 
   } catch (error) {
-    console.error('❌ Error bridging to Mastra agent:', error);
+    const duration = Date.now() - startTime;
+    logger.error('Error bridging to Mastra agent', { error, duration });
     return 'I encountered an error while processing your request. Please try again.';
   }
 }
@@ -204,28 +214,32 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
         state.workbookContext.lastQuery = message;
         state.workbookContext.lastResults = response;
       }
+      
+      // Log bot message exchange
+      const userId = context.activity.from?.id || 'unknown';
+      logger.logBotMessage(userId, message, response);
             
       // Send the response back to Teams
       await context.sendActivity(response);
 
     } catch (error) {
-      console.error('❌ Teams message handler error:', error);
+      logger.error('Teams message handler error', { error });
       await context.sendActivity('I\'m experiencing technical difficulties. Please try again later.');
     }
   });
 
   // Handle adaptive card submits (for future interactive features)
   app.adaptiveCards.actionSubmit('workbook_action', async (context, state, data) => {
-    console.log('📋 Adaptive card action received:', data);
+    logger.debug('Adaptive card action received', { data });
     await context.sendActivity('Action received and processed.');
   });
 
   // Add logging for debugging - using conversationUpdate as a generic activity handler
   app.conversationUpdate('membersAdded', async (context: TurnContext) => {
-    console.log(`🔄 Processing activity: ${context.activity.type}`);
-    if (context.activity.text) {
-      console.log(`📝 Message: "${context.activity.text}"`);
-    }
+    logger.debug('Processing activity', { 
+      type: context.activity.type,
+      text: context.activity.text 
+    });
   });
 }
 

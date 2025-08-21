@@ -47,7 +47,7 @@ export async function createTestWorkbookAgent() {
 - Provide helpful guidance for vague queries
 - **ALWAYS preview bulk operations before executing**`,
 
-    model: openaiProvider('gpt-4o'),  // More cost-effective than gpt-4-turbo
+    model: openaiProvider('gpt-4.1-nano'), 
     tools: await tools.getAllTools()
   });
 
