@@ -37,9 +37,16 @@ export async function createWorkbookAgent() {
   // Create memory system with MongoDB storage and vector search
   const memory = new Memory({
     storage: mongoStore,
+    vector: mongoVector,
     options: {
-      lastMessages: 20
-      // Note: semanticRecall disabled - vector search will be added in future version
+      lastMessages: 20,
+      semanticRecall: {
+        topK: 3,
+        messageRange: {
+          before: 2,
+          after: 1
+        }
+      }
     }
   });
   
