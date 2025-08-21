@@ -1,4 +1,4 @@
-import { DefaultAzureCredential } from '@azure/identity';
+import { DefaultAzureCredential, ManagedIdentityCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
 
 /**
@@ -14,9 +14,22 @@ class KeyVaultService {
     const keyVaultName = process.env.KEY_VAULT_NAME || 'workbook-bot-kv-3821';
     this.keyVaultUrl = `https://${keyVaultName}.vault.azure.net/`;
         
-    // Use DefaultAzureCredential which works both locally (with Azure CLI) 
-    // and in production (with Managed Identity)
-    const credential = new DefaultAzureCredential();
+    // Configure credential based on environment
+    let credential;
+    
+    if (process.env.MICROSOFT_APP_TYPE === 'UserAssignedMSI' || process.env.WEBSITE_SITE_NAME) {
+      // Production: Use User-Assigned MSI directly (cleaner, no credential chain noise)
+      const clientId = process.env.MICROSOFT_APP_ID;
+      credential = new ManagedIdentityCredential({ 
+        clientId: clientId 
+      });
+      console.log('🔐 Using User-Assigned Managed Identity for Key Vault');
+    } else {
+      // Development: Use DefaultAzureCredential for local Azure CLI auth
+      credential = new DefaultAzureCredential();
+      console.log('🔐 Using DefaultAzureCredential for Key Vault (development)');
+    }
+    
     this.client = new SecretClient(this.keyVaultUrl, credential);
   }
 

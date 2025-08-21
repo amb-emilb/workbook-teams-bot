@@ -34,10 +34,16 @@ export async function createWorkbookAgent() {
     dbName: 'workbook-memory'
   });
   
+  // Create embedder for vector search
+  const embedder = createOpenAI({
+    apiKey: openaiApiKey
+  }).embedding('text-embedding-3-small');
+
   // Create memory system with MongoDB storage and vector search
   const memory = new Memory({
     storage: mongoStore,
     vector: mongoVector,
+    embedder: embedder,
     options: {
       lastMessages: 20,
       semanticRecall: {
