@@ -1,7 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { LibSQLStore } from '@mastra/libsql';
+import { MongoDBStore, MongoDBVector } from '@mastra/mongodb';
 import { keyVaultService } from '../services/keyVault.js';
 
 /**
@@ -11,8 +11,9 @@ import { keyVaultService } from '../services/keyVault.js';
 export async function createWorkbookAgent() {
   console.log('🔐 Initializing Workbook agent with Key Vault...');
   
-  // Get OpenAI API key from Key Vault
+  // Get secrets from Key Vault
   const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
+  const mongoConnectionString = await keyVaultService.getSecret('cosmos-mongodb-connection');
   
   // Create OpenAI provider with Key Vault API key
   const openaiProvider = createOpenAI({
@@ -22,20 +23,23 @@ export async function createWorkbookAgent() {
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
   
-  // Create memory system for conversation persistence with LibSQL storage
+  // Create MongoDB storage and vector store for conversation persistence
+  const mongoStore = new MongoDBStore({
+    url: mongoConnectionString,
+    dbName: 'workbook-memory'
+  });
+  
+  const mongoVector = new MongoDBVector({
+    uri: mongoConnectionString,
+    dbName: 'workbook-memory'
+  });
+  
+  // Create memory system with MongoDB storage and vector search
   const memory = new Memory({
-    storage: new LibSQLStore({
-      url: 'file:./memory.db'
-    }),
+    storage: mongoStore,
     options: {
-      lastMessages: 20,
-      semanticRecall: {
-        topK: 3,
-        messageRange: {
-          before: 2,
-          after: 1
-        }
-      }
+      lastMessages: 20
+      // Note: semanticRecall disabled - vector search will be added in future version
     }
   });
   
