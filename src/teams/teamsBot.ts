@@ -130,6 +130,13 @@ let cachedWorkbookAgent: Agent | null = null;
 let agentInitializationCount = 0;
 let agentFirstInitialized: Date | null = null;
 
+// Add process and module diagnostics
+const processStartTime = new Date();
+const moduleId = Math.random().toString(36).substring(7);
+const processId = process.pid;
+
+console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, ModuleID: ${moduleId}, ProcessStart: ${processStartTime.toISOString()}`);
+
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
  * This allows our existing 12 tools to work seamlessly with Teams
@@ -141,7 +148,11 @@ async function executeMastraAgent(message: string) {
       message: message.substring(0, 100),
       agentCached: !!cachedWorkbookAgent,
       agentInitCount: agentInitializationCount,
-      agentFirstInit: agentFirstInitialized?.toISOString()
+      agentFirstInit: agentFirstInitialized?.toISOString(),
+      processId: processId,
+      moduleId: moduleId,
+      processUptime: Math.floor(process.uptime()),
+      memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
     });
 
     // Initialize agent if not cached
@@ -152,17 +163,27 @@ async function executeMastraAgent(message: string) {
       }
       logger.warn('Agent cache miss - initializing agent', { 
         initCount: agentInitializationCount,
-        timeSinceFirst: agentFirstInitialized ? Date.now() - agentFirstInitialized.getTime() : 0
+        timeSinceFirst: agentFirstInitialized ? Date.now() - agentFirstInitialized.getTime() : 0,
+        processId: processId,
+        moduleId: moduleId,
+        processUptime: Math.floor(process.uptime())
       });
       cachedWorkbookAgent = await createWorkbookAgent();
       logger.info('Agent successfully cached', { 
         initCount: agentInitializationCount,
-        agentType: cachedWorkbookAgent?.constructor?.name 
+        agentType: cachedWorkbookAgent?.constructor?.name,
+        processId: processId,
+        moduleId: moduleId,
+        memoryAfterInit: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
       });
     } else {
       logger.debug('Agent cache hit - reusing existing agent', { 
         initCount: agentInitializationCount,
-        agentType: cachedWorkbookAgent?.constructor?.name
+        agentType: cachedWorkbookAgent?.constructor?.name,
+        processId: processId,
+        moduleId: moduleId,
+        processUptime: Math.floor(process.uptime()),
+        cacheAge: agentFirstInitialized ? Math.floor((Date.now() - agentFirstInitialized.getTime()) / 1000) : 0
       });
     }
 

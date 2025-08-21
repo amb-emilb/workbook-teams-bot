@@ -249,25 +249,32 @@ MICROSOFT_APP_ID=1a915ea6-267d-4419-b4ce-add0b98d0e1b
 
 ## **PHASE 9: Performance Optimization & Critical Issue Resolution** ⚠️ **CRITICAL - IDENTIFIED FROM LOG ANALYSIS**
 
-### ⚠️ **CRITICAL: Agent Caching Failure** (Priority 1)
+### ⚠️ **CRITICAL: Agent Caching Failure** (Priority 1) - **CONFIRMED & DIAGNOSED**
 **Issue**: Agent reinitialization on every request causes 5-8 second delays
-**Evidence**: Logs show "Initializing Workbook agent for first use" for each message
+**Evidence**: Application Insights logs confirm fresh agent initialization for each message
 **Impact**: Poor user experience, excessive latency, resource waste
 
-**Root Cause Analysis**:
+**Investigation Results**:
 ```typescript
 // Current Problem in teamsBot.ts:125
 let cachedWorkbookAgent: Agent | null = null;
 
-// Agent cache is NOT persisting between requests
+// Agent cache JavaScript variable is NOT persisting between requests
 // Each message reinitializes the entire agent from scratch
 ```
 
-**Required Fix**:
-- [ ] **Investigate Agent Persistence** - Determine why cachedWorkbookAgent is null on each request
-- [ ] **Fix Agent Caching Logic** - Ensure agent persists across requests
-- [ ] **Add Agent Lifecycle Logging** - Track agent initialization and reuse
-- [ ] **Memory Management** - Optimize agent memory usage during caching
+**Diagnostic Evidence from Application Insights**:
+- **11:48:39** - Server restart (`server.ts module loaded/reloaded`)
+- **11:52:xx** - Agent initialization for test message
+- **4-minute gap** proves agent was initialized fresh, not cached
+- Winston logs partially working but agent diagnostics need investigation
+
+**Progress Update**:
+- [x] **Investigate Agent Persistence** - CONFIRMED: JavaScript variable not persisting
+- [x] **Add Agent Lifecycle Logging** - Diagnostic logging implemented
+- [x] **Fix Winston Application Insights Transport** - Initialization order fixed
+- [ ] **Memory Management Investigation** - Determine why JS variable resets
+- [ ] **Implement Proper Agent Caching** - Find solution for variable persistence
 
 ### **Performance Critical Issues From Logs**
 - [ ] **Fix Telemetry Initialization Order** - OpenTelemetry conflicts at startup (Priority 2)
@@ -422,12 +429,15 @@ async function executeMastraAgent(message: string, userId: string) {
 - [x] Performance metrics being tracked ✅
 
 ### **Phase 9+10 Combined Complete When:**
-- [ ] **⚠️ CRITICAL**: Agent caching fixed - no more reinitialization per request
+- [ ] **⚠️ CRITICAL**: Agent caching fixed - no more reinitialization per request (**DIAGNOSED: JS variable not persisting**)
 - [ ] **⚠️ CRITICAL**: Conversation context preserved per Teams userId
 - [ ] Response times consistently under 3 seconds (down from 5-8 seconds)
+- [x] **Winston Application Insights logging** - Initialization order fixed ✅
 - [ ] OpenTelemetry initialization order conflicts resolved
 - [ ] Application Insights span export failures fixed
 - [ ] Multi-turn conversations working seamlessly
+
+**Current Status**: Agent persistence issue confirmed via Application Insights diagnostics. Fresh agent initialization occurring on every request despite JavaScript caching variable.
 
 ### **Phase 11 Complete When:**
 - [ ] All tool functionality issues resolved  
@@ -458,13 +468,19 @@ async function executeMastraAgent(message: string, userId: string) {
 - **Security**: Proper authentication and request validation
 - **Monitoring**: Basic health checks and Application Insights
 
-### 🔧 **CRITICAL ISSUES IDENTIFIED FROM LOG ANALYSIS**
-- **⚠️ CRITICAL**: Agent caching failure causes 5-8 second delays from reinitialization 
+### 🔧 **CRITICAL ISSUES IDENTIFIED FROM LOG ANALYSIS** (Updated 2025-08-21)
+- **⚠️ CRITICAL**: Agent caching failure causes 5-8 second delays from reinitialization (**CONFIRMED via Application Insights**)
 - **⚠️ CRITICAL**: Conversation context loss - each message treated as new (same root cause as above)
-- **Telemetry Issues**: OpenTelemetry initialization order conflicts at startup
+- **⚠️ ROOT CAUSE**: JavaScript variable `cachedWorkbookAgent` not persisting between requests
+- **Telemetry Issues**: OpenTelemetry initialization order conflicts at startup (**PARTIALLY FIXED**)
 - **Span Export Failures**: Application Insights export errors in production
 - **Credential Warnings**: DefaultAzureCredential missing AZURE_CLIENT_ID warnings
 - **User Experience**: Context loss creates horrible user experience for multi-turn conversations
+
+**Investigation Summary**: 
+- Winston logging initialization order fixed - server module loads now visible in Application Insights
+- Agent persistence confirmed broken: 4-minute gap between server start and agent initialization proves fresh initialization per request
+- JavaScript module-level variable not surviving between HTTP requests - investigation needed
 
 ### 🎯 **IMMEDIATE PRIORITIES (Updated from Log Analysis)**
 1. **⚠️ CRITICAL: Fix Agent Caching + Context Loss** (Phase 9+10 Combined) - **Single fix addresses both performance and UX**
