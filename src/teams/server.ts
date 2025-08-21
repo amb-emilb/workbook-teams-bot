@@ -1,25 +1,27 @@
+// CRITICAL: Initialize Application Insights FIRST before any other imports
+// This ensures Winston instrumentation works correctly
+import { initializeTelemetry, trackException } from '../utils/telemetry.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+initializeTelemetry();
+
+// Module-level logging to track server restarts
+const serverLoadTime = new Date();
+console.log(`[${serverLoadTime.toISOString()}] server.ts module loaded/reloaded`);
+
+// Now import everything else AFTER telemetry initialization
 import * as restify from 'restify';
 import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
-import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
 import { logger } from '../services/logger.js';
-import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
 
 // Fix __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config();
-
-// Module-level logging to track server restarts
-const serverLoadTime = new Date();
-console.log(`[${serverLoadTime.toISOString()}] server.ts module loaded/reloaded`);
-
-// Initialize Application Insights
-initializeTelemetry();
 
 /**
  * Teams Bot Server
