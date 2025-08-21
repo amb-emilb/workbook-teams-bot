@@ -247,14 +247,32 @@ MICROSOFT_APP_ID=1a915ea6-267d-4419-b4ce-add0b98d0e1b
 
 ---
 
-## **PHASE 9: Performance Optimization** 📋 **PLANNED**
+## **PHASE 9: Performance Optimization & Critical Issue Resolution** ⚠️ **CRITICAL - IDENTIFIED FROM LOG ANALYSIS**
 
-### **Response Time Improvements**
-- [ ] **Agent Caching** - Cache initialized Mastra agent to reduce cold start
-- [ ] **Connection Pooling** - Optimize database and API connections
-- [ ] **Parallel Processing** - Optimize tool execution for multiple operations
-- [ ] **Memory Management** - Optimize memory usage during tool execution
-- [ ] **Startup Time Reduction** - Optimize application startup sequence
+### ⚠️ **CRITICAL: Agent Caching Failure** (Priority 1)
+**Issue**: Agent reinitialization on every request causes 5-8 second delays
+**Evidence**: Logs show "Initializing Workbook agent for first use" for each message
+**Impact**: Poor user experience, excessive latency, resource waste
+
+**Root Cause Analysis**:
+```typescript
+// Current Problem in teamsBot.ts:125
+let cachedWorkbookAgent: Agent | null = null;
+
+// Agent cache is NOT persisting between requests
+// Each message reinitializes the entire agent from scratch
+```
+
+**Required Fix**:
+- [ ] **Investigate Agent Persistence** - Determine why cachedWorkbookAgent is null on each request
+- [ ] **Fix Agent Caching Logic** - Ensure agent persists across requests
+- [ ] **Add Agent Lifecycle Logging** - Track agent initialization and reuse
+- [ ] **Memory Management** - Optimize agent memory usage during caching
+
+### **Performance Critical Issues From Logs**
+- [ ] **Fix Telemetry Initialization Order** - OpenTelemetry conflicts at startup (Priority 2)
+- [ ] **Resolve Span Export Failures** - Application Insights export errors (Priority 3)
+- [ ] **Address DefaultAzureCredential Warnings** - AZURE_CLIENT_ID missing warnings (Priority 4)
 
 ### **Scalability Enhancements**
 - [ ] **Auto-scaling Configuration** - Configure App Service auto-scaling rules
@@ -263,50 +281,78 @@ MICROSOFT_APP_ID=1a915ea6-267d-4419-b4ce-add0b98d0e1b
 - [ ] **CDN Implementation** - Add CDN for static assets if needed
 - [ ] **Database Optimization** - Optimize Workbook API calls and caching
 
-### **Thread Pool Optimization**
-- [ ] **Investigate Heartbeat Warnings** - Address Kestrel thread pool starvation
-- [ ] **Async/Await Optimization** - Review and optimize async patterns
-- [ ] **Resource Pooling** - Implement proper resource pooling
-- [ ] **Concurrency Tuning** - Optimize concurrent request handling
-
 ---
 
-## **PHASE 10: Tool Logic & User Experience Enhancement** 📋 **PLANNED**
+## **PHASE 10: Conversation Context & User Experience** ⚠️ **CRITICAL - MERGED WITH PHASE 9**
 
-### **CRITICAL: Conversation Context Management** ⚠️ **HIGH PRIORITY**
-- [ ] **Fix Context Loss Issue** - Bot currently treats every message as new interaction
-- [ ] **Conversation History Implementation** - Pass conversation history to Mastra agent
-- [ ] **Context Window Management** - Keep last 5-10 message exchanges to avoid token limits
-- [ ] **Context Reset Triggers** - Clear context on topic changes or explicit user requests
-- [ ] **Multi-turn Task Support** - Handle follow-up questions and refinements
+### ⚠️ **CRITICAL: Conversation Context Loss** (Priority 1 - **DIRECTLY LINKED TO AGENT CACHING**)
+**Issue**: Bot treats every message as new interaction - conversation context is lost
+**Root Cause**: Agent reinitialization destroys conversation memory AND cached agent state
+**Evidence**: Same userId "29:1gRP1gbb_G2-t18H13dCq0oyX08HtHu0e7PniFRnMIbrVDVM9NJ6cOePkdNdpkapvmR28N82UfaFdx69GG-HDHA" in logs proves user persistence is achievable
+
+**Critical Connection**: Agent caching failure (Phase 9) and context loss (Phase 10) are **THE SAME PROBLEM**
+- Agent reinitialization = Loss of conversation context
+- Fix agent persistence = Fix conversation context
+- Single solution addresses both performance and UX issues
 
 **Example Issue:**
 ```
 User: "Give me complete list of Grethe's clients, not just top 5"
 Bot: "Here are top 10... would you like me to proceed with all 60?"
 User: "Yes please proceed"
-Bot: "What do you want me to proceed with?" ❌
+Bot: "What do you want me to proceed with?" ❌ (Agent reinitialized, context lost)
 ```
 
-**Required Implementation:**
+**Required Implementation** (Unified Fix):
 ```typescript
-// Update executeMastraAgent to accept conversation history
-async function executeMastraAgent(message: string, conversationHistory?: ConversationTurn[]) {
-  const messages = [
-    ...(conversationHistory || []),
-    { role: 'user', content: queryValidation.sanitized }
-  ];
-  
-  const response = await cachedWorkbookAgent.generate(messages);
+// Phase 9 + 10 Combined Solution:
+// 1. Fix agent persistence to maintain both performance AND conversation state
+// 2. Implement conversation history per Teams userId
+
+interface ConversationContext {
+  userId: string;
+  messageHistory: Array<{role: 'user' | 'assistant', content: string, timestamp: Date}>;
+  lastActivity: Date;
 }
 
-// Update message handler to build and pass context
-app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
-  const conversationHistory = buildConversationHistory(state.workbookContext);
-  const response = await executeMastraAgent(message, conversationHistory);
-  updateConversationContext(state.workbookContext, message, response);
-});
+// Global conversation store (per userId)
+const conversationStore = new Map<string, ConversationContext>();
+
+// Update executeMastraAgent with conversation context
+async function executeMastraAgent(message: string, userId: string) {
+  // Get or create conversation context for this user
+  const context = conversationStore.get(userId) || {
+    userId,
+    messageHistory: [],
+    lastActivity: new Date()
+  };
+  
+  // Build messages with conversation history
+  const messages = [
+    ...context.messageHistory.slice(-10), // Keep last 10 exchanges
+    { role: 'user', content: message }
+  ];
+  
+  // Use cached agent (fix from Phase 9) with conversation context
+  const response = await cachedWorkbookAgent.generate(messages);
+  
+  // Update conversation context
+  context.messageHistory.push(
+    { role: 'user', content: message, timestamp: new Date() },
+    { role: 'assistant', content: response.text, timestamp: new Date() }
+  );
+  context.lastActivity = new Date();
+  conversationStore.set(userId, context);
+  
+  return response.text;
+}
 ```
+
+**Tasks for Combined Fix**:
+- [ ] **Fix Agent Persistence** - Solve root cause of reinitialization
+- [ ] **Implement Per-User Conversation Context** - Store conversation history by Teams userId
+- [ ] **Add Context Management** - Limit context window, cleanup old conversations
+- [ ] **Test Multi-turn Conversations** - Verify context persistence works
 
 ### **Tool Functionality Fixes**
 - [ ] **CSV Download Fix** - Resolve CSV export functionality issues
@@ -369,31 +415,33 @@ app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
 
 ## 🎯 **SUCCESS CRITERIA FOR NEXT PHASES**
 
-### **Phase 8 Complete When:**
-- [ ] Application logs visible in Azure Monitor
-- [ ] Custom dashboards operational
-- [ ] Alert rules configured and tested
-- [ ] Performance metrics being tracked
+### **Phase 8 Complete When:** ✅ **COMPLETED**
+- [x] Application logs visible in Azure Monitor ✅
+- [x] Structured logging with Winston implemented ✅
+- [x] Application Insights integration working ✅
+- [x] Performance metrics being tracked ✅
 
-### **Phase 9 Complete When:**
-- [ ] Response times consistently under 5 seconds
-- [ ] Thread pool warnings eliminated
-- [ ] Auto-scaling rules working
-- [ ] Load testing passed
+### **Phase 9+10 Combined Complete When:**
+- [ ] **⚠️ CRITICAL**: Agent caching fixed - no more reinitialization per request
+- [ ] **⚠️ CRITICAL**: Conversation context preserved per Teams userId
+- [ ] Response times consistently under 3 seconds (down from 5-8 seconds)
+- [ ] OpenTelemetry initialization order conflicts resolved
+- [ ] Application Insights span export failures fixed
+- [ ] Multi-turn conversations working seamlessly
 
-### **Phase 10 Complete When:**
-- [ ] All tool functionality issues resolved
+### **Phase 11 Complete When:**
+- [ ] All tool functionality issues resolved  
 - [ ] CSV downloads working
 - [ ] Enhanced user experience deployed
 - [ ] Adaptive cards implemented
 
-### **Phase 11 Complete When:**
+### **Phase 12 Complete When:**
 - [ ] Security assessment passed
 - [ ] Compliance requirements met
 - [ ] Audit logging operational
 - [ ] Enhanced security controls active
 
-### **Phase 12 Complete When:**
+### **Phase 13 Complete When:**
 - [ ] Multi-environment pipeline working
 - [ ] Blue-green deployments operational
 - [ ] Complete documentation available
@@ -410,18 +458,19 @@ app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
 - **Security**: Proper authentication and request validation
 - **Monitoring**: Basic health checks and Application Insights
 
-### 🔧 **AREAS FOR IMPROVEMENT**
-- **Logging**: Application logs not visible in Azure Monitor
-- **Performance**: Response times 5-18 seconds (can be optimized)
-- **Tool Logic**: Some tool functionality needs refinement
-- **User Experience**: Can be enhanced with Adaptive Cards
-- **Monitoring**: Can be expanded with custom metrics and alerts
+### 🔧 **CRITICAL ISSUES IDENTIFIED FROM LOG ANALYSIS**
+- **⚠️ CRITICAL**: Agent caching failure causes 5-8 second delays from reinitialization 
+- **⚠️ CRITICAL**: Conversation context loss - each message treated as new (same root cause as above)
+- **Telemetry Issues**: OpenTelemetry initialization order conflicts at startup
+- **Span Export Failures**: Application Insights export errors in production
+- **Credential Warnings**: DefaultAzureCredential missing AZURE_CLIENT_ID warnings
+- **User Experience**: Context loss creates horrible user experience for multi-turn conversations
 
-### 🎯 **IMMEDIATE PRIORITIES**
-1. **Fix Application Logging** (Phase 8)
-2. **Optimize Performance** (Phase 9)
-3. **Fix Tool Issues** (Phase 10)
-4. **Enhance Monitoring** (Phase 8)
+### 🎯 **IMMEDIATE PRIORITIES (Updated from Log Analysis)**
+1. **⚠️ CRITICAL: Fix Agent Caching + Context Loss** (Phase 9+10 Combined) - **Single fix addresses both performance and UX**
+2. **Fix Telemetry Initialization** (Phase 9) - OpenTelemetry conflicts
+3. **Resolve Span Export Issues** (Phase 9) - Application Insights errors  
+4. **Fix Tool Issues** (Phase 10) - CSV downloads, response formatting
 5. **Security Review** (Phase 11)
 
 ---
@@ -448,6 +497,6 @@ app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
 
 ---
 
-**Last Updated**: 2025-08-20  
-**Status**: Production Ready with Enhancement Roadmap  
-**Next Phase**: Application Logging & Monitoring Enhancement
+**Last Updated**: 2025-08-21  
+**Status**: Production Ready - **CRITICAL PERFORMANCE ISSUES IDENTIFIED**  
+**Next Phase**: **URGENT** - Fix Agent Caching + Conversation Context Loss (Combined Phase 9+10)

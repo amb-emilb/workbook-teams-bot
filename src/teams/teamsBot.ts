@@ -26,6 +26,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Module-level logging to track if module is being reloaded
+const moduleLoadTime = new Date();
+console.log(`[${moduleLoadTime.toISOString()}] teamsBot.ts module loaded/reloaded`);
+
 /**
  * Teams AI Application that bridges our Mastra agent with Microsoft Teams
  * 
@@ -123,6 +127,8 @@ export async function createTeamsApp(): Promise<Application<WorkbookTurnState>> 
 
 // Store initialized agent globally to avoid recreating it
 let cachedWorkbookAgent: Agent | null = null;
+let agentInitializationCount = 0;
+let agentFirstInitialized: Date | null = null;
 
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
@@ -131,12 +137,33 @@ let cachedWorkbookAgent: Agent | null = null;
 async function executeMastraAgent(message: string) {
   const startTime = Date.now();
   try {
-    logger.debug('Bridging Teams AI to Mastra Agent', { message: message.substring(0, 100) });
+    logger.debug('Bridging Teams AI to Mastra Agent', { 
+      message: message.substring(0, 100),
+      agentCached: !!cachedWorkbookAgent,
+      agentInitCount: agentInitializationCount,
+      agentFirstInit: agentFirstInitialized?.toISOString()
+    });
 
     // Initialize agent if not cached
     if (!cachedWorkbookAgent) {
-      logger.info('Initializing Workbook agent for first use');
+      agentInitializationCount++;
+      if (!agentFirstInitialized) {
+        agentFirstInitialized = new Date();
+      }
+      logger.warn('Agent cache miss - initializing agent', { 
+        initCount: agentInitializationCount,
+        timeSinceFirst: agentFirstInitialized ? Date.now() - agentFirstInitialized.getTime() : 0
+      });
       cachedWorkbookAgent = await createWorkbookAgent();
+      logger.info('Agent successfully cached', { 
+        initCount: agentInitializationCount,
+        agentType: cachedWorkbookAgent?.constructor?.name 
+      });
+    } else {
+      logger.debug('Agent cache hit - reusing existing agent', { 
+        initCount: agentInitializationCount,
+        agentType: cachedWorkbookAgent?.constructor?.name
+      });
     }
 
     // SECURITY: Input validation and sanitization

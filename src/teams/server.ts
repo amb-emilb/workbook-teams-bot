@@ -14,6 +14,10 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// Module-level logging to track server restarts
+const serverLoadTime = new Date();
+console.log(`[${serverLoadTime.toISOString()}] server.ts module loaded/reloaded`);
+
 // Initialize Application Insights
 initializeTelemetry();
 
