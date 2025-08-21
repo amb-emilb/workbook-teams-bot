@@ -220,22 +220,33 @@ MICROSOFT_APP_ID=1a915ea6-267d-4419-b4ce-add0b98d0e1b
 
 ## **PHASE 8: Application Logging & Monitoring Enhancement** ✅ **COMPLETED** (2025-08-21)
 
-### ✅ **Application Logging Improvements**
-- [x] **Winston Logging Package** - Installed winston and winston-transport for structured logging
-- [x] **Structured Logging Implementation** - Created comprehensive logger service with TypeScript
-- [x] **Log Levels Configuration** - Implemented debug, info, warn, error, verbose levels
-- [x] **Application Insights Integration** - Custom Winston transport for App Insights telemetry
+### ✅ **Application Logging Improvements** ⚠️ **UPDATED: Simplified to Console Logging**
+- [x] **Simple Console Logging** - Reverted from Winston to reliable console.log approach
+- [x] **Application Insights Integration** - Direct telemetry integration without Winston complexity
 - [x] **Performance Metrics** - Added performance tracking for Mastra agent execution
+- [x] **Structured Log Messages** - Clear prefixed logging for easy identification
+- [x] **Security Event Logging** - Console-based security event tracking
 
-### ✅ **Logging Features Implemented**
-- [x] **Centralized Logger Service** - `src/services/logger.ts` with singleton pattern
-- [x] **Application Insights Transport** - Maps Winston levels to App Insights severity
-- [x] **Request Logging** - HTTP request tracking with duration and status codes
-- [x] **Bot Message Logging** - Tracks user messages and bot responses (truncated for privacy)
-- [x] **Tool Usage Logging** - Monitors which tools are used with parameters and duration
-- [x] **Performance Logging** - Tracks operation durations for performance analysis
-- [x] **Security Event Logging** - Dedicated logging for security events like rate limiting
-- [x] **Environment-Based Configuration** - Different log levels for production vs development
+### ✅ **Logging Features Implemented** ⚠️ **REVISED APPROACH**
+- [x] **Console-Based Logging** - Simple, reliable console.log/warn/error approach  
+- [x] **Application Insights Telemetry** - Direct integration for exceptions and events
+- [x] **Request Logging** - HTTP request tracking with clear prefixes like `[BOT MESSAGE]`
+- [x] **Agent Cache Diagnostics** - Specialized logging like `[AGENT CACHE MISS]` and `[AGENT CACHED]`
+- [x] **Performance Logging** - Response time and duration tracking
+- [x] **Security Event Logging** - Prefixed security warnings like `SECURITY: Rate limit exceeded`
+- [x] **Process Diagnostics** - Module loading, process ID, and memory usage tracking
+
+### 🔄 **Logging Architecture Change**
+**Previous Approach**: Winston structured logging with custom Application Insights transport
+**Current Approach**: Simple console logging + direct Application Insights telemetry
+
+**Reason for Change**: Winston initialization order conflicts broke ALL application logging output. Console.log approach is more reliable and appears correctly in Azure App Service logs.
+
+**Benefits**:
+- ✅ **Reliable Output**: Console logs appear consistently in Azure logs
+- ✅ **No Initialization Conflicts**: No OpenTelemetry/Winston order dependencies  
+- ✅ **Simpler Architecture**: Less complexity, easier to debug
+- ✅ **Clear Prefixes**: Easy identification of log sources with tags like `[AGENT EXECUTION]`
 
 
 ### **Monitoring & Alerting Setup** 📋 **PENDING**
@@ -267,18 +278,21 @@ let cachedWorkbookAgent: Agent | null = null;
 - **11:48:39** - Server restart (`server.ts module loaded/reloaded`)
 - **11:52:xx** - Agent initialization for test message
 - **4-minute gap** proves agent was initialized fresh, not cached
-- Winston logs partially working but agent diagnostics need investigation
+- Console logs working correctly, agent diagnostics implemented
 
 **Progress Update**:
-- [x] **Investigate Agent Persistence** - CONFIRMED: JavaScript variable not persisting
-- [x] **Add Agent Lifecycle Logging** - Diagnostic logging implemented
-- [x] **Fix Winston Application Insights Transport** - Initialization order fixed
-- [ ] **Memory Management Investigation** - Determine why JS variable resets
-- [ ] **Implement Proper Agent Caching** - Find solution for variable persistence
+- [x] **Investigate Agent Persistence** - CONFIRMED: JavaScript variable not persisting between requests
+- [x] **Add Agent Lifecycle Logging** - Comprehensive cache diagnostics implemented in teamsBot.ts
+- [x] **Remove Winston Logging** - Switched to console logging for reliability (fixed broken logging)
+- [x] **Fix Telemetry Initialization Order** - Resolved early hijacking that broke console output
+- [ ] **Memory Management Investigation** - Determine root cause of JS variable reset in Azure
+- [ ] **Implement Proper Agent Caching** - Find solution for persistent agent storage
+- [ ] **Resolve Application Insights Span Export Failures** - Fix telemetry export errors
 
-### **Performance Critical Issues From Logs**
-- [ ] **Fix Telemetry Initialization Order** - OpenTelemetry conflicts at startup (Priority 2)
-- [ ] **Resolve Span Export Failures** - Application Insights export errors (Priority 3)
+### **Remaining Performance Issues**
+- [x] **Fix Telemetry Initialization Order** - ✅ RESOLVED: Fixed early hijacking of console output
+- [ ] **Resolve Span Export Failures** - Application Insights export errors still occurring (Priority 1)
+- [ ] **Agent Variable Persistence** - Core issue: JS variables not surviving requests in Azure (Priority 1)
 - [ ] **Address DefaultAzureCredential Warnings** - AZURE_CLIENT_ID missing warnings (Priority 4)
 
 ### **Scalability Enhancements**
@@ -424,7 +438,7 @@ async function executeMastraAgent(message: string, userId: string) {
 
 ### **Phase 8 Complete When:** ✅ **COMPLETED**
 - [x] Application logs visible in Azure Monitor ✅
-- [x] Structured logging with Winston implemented ✅
+- [x] Console logging implemented (Winston removed) ✅
 - [x] Application Insights integration working ✅
 - [x] Performance metrics being tracked ✅
 
@@ -432,7 +446,7 @@ async function executeMastraAgent(message: string, userId: string) {
 - [ ] **⚠️ CRITICAL**: Agent caching fixed - no more reinitialization per request (**DIAGNOSED: JS variable not persisting**)
 - [ ] **⚠️ CRITICAL**: Conversation context preserved per Teams userId
 - [ ] Response times consistently under 3 seconds (down from 5-8 seconds)
-- [x] **Winston Application Insights logging** - Initialization order fixed ✅
+- [x] **Console logging with Application Insights** - Reliable logging implemented ✅
 - [ ] OpenTelemetry initialization order conflicts resolved
 - [ ] Application Insights span export failures fixed
 - [ ] Multi-turn conversations working seamlessly
@@ -478,7 +492,7 @@ async function executeMastraAgent(message: string, userId: string) {
 - **User Experience**: Context loss creates horrible user experience for multi-turn conversations
 
 **Investigation Summary**: 
-- Winston logging initialization order fixed - server module loads now visible in Application Insights
+- Console logging implemented successfully - server module loads now visible in Application Insights
 - Agent persistence confirmed broken: 4-minute gap between server start and agent initialization proves fresh initialization per request
 - JavaScript module-level variable not surviving between HTTP requests - investigation needed
 

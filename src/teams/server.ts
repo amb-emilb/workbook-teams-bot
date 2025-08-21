@@ -1,27 +1,20 @@
-// CRITICAL: Initialize Application Insights FIRST before any other imports
-// This ensures Winston instrumentation works correctly
-import { initializeTelemetry, trackException } from '../utils/telemetry.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-initializeTelemetry();
-
-// Module-level logging to track server restarts
-const serverLoadTime = new Date();
-console.log(`[${serverLoadTime.toISOString()}] server.ts module loaded/reloaded`);
-
-// Now import everything else AFTER telemetry initialization
 import * as restify from 'restify';
 import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
+import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
-import { logger } from '../services/logger.js';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
 
 // Fix __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config();
+
+// Initialize Application Insights
+initializeTelemetry();
 
 /**
  * Teams Bot Server
@@ -34,13 +27,13 @@ const __dirname = path.dirname(__filename);
  * Initialize server with environment variables for Teams AI
  */
 async function initializeServer() {
-  logger.info('Initializing Teams AI server...');
+  console.log('Initializing Teams AI server...');
     
   try {
     // For User-Assigned Managed Identity, Teams AI SDK reads MICROSOFT_APP_ID and MICROSOFT_APP_TYPE from environment
     // App Service already has these configured: MICROSOFT_APP_ID=1a915ea6... and MICROSOFT_APP_TYPE=UserAssignedMSI
     // No password needed - Azure handles authentication automatically
-    logger.info('Using User-Assigned Managed Identity authentication', {
+    console.log('Using User-Assigned Managed Identity authentication', {
       appType: process.env.MICROSOFT_APP_TYPE || 'UserAssignedMSI',
       appId: process.env.MICROSOFT_APP_ID?.substring(0, 8) + '...'
     });
@@ -50,7 +43,7 @@ async function initializeServer() {
 
     return { teamsApp };
   } catch (error) {
-    logger.error('Failed to initialize server', { error });
+    console.error('Failed to initialize server', { error });
     throw error;
   }
 }
@@ -114,7 +107,7 @@ async function startServer() {
           clientData.count++;
           
           if (clientData.count > MAX_REQUESTS_PER_WINDOW) {
-            logger.logSecurity('Rate limit exceeded', { ip: clientIp });
+            console.warn('SECURITY: Rate limit exceeded', { ip: clientIp });
             res.status(429);
             res.json({ 
               error: 'Too Many Requests',
@@ -146,11 +139,11 @@ async function startServer() {
 
         try {
           // Test Key Vault connectivity
-          logger.debug('Health check: Testing Key Vault connectivity...');
+          console.log('Health check: Testing Key Vault connectivity...');
           
           // Test if we can access Key Vault secrets
           const keyVaultTest = await keyVaultService.getSecret('openai-api-key').catch(error => {
-            logger.error('Key Vault health check failed', { error });
+            console.error('Key Vault health check failed', { error });
             return null;
           });
           
@@ -185,10 +178,10 @@ async function startServer() {
             healthCheck.status = 'degraded';
           }
 
-          logger.debug('Health check completed', { status: healthCheck.status, checks: healthCheck.checks });
+          console.log('Health check completed', { status: healthCheck.status, checks: healthCheck.checks });
           
         } catch (error) {
-          logger.error('Health check error', { error });
+          console.error('Health check error', { error });
           healthCheck.status = 'error';
           healthCheck.checks.keyVault = { status: 'error', message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
         }
@@ -212,8 +205,7 @@ async function startServer() {
           activityType: req.body?.type || 'unknown',
           source: req.headers['x-forwarded-for'] || req.connection.remoteAddress
         };
-        logger.logRequest('POST', '/api/messages', undefined, undefined);
-        logger.debug('Incoming Teams message', requestInfo);
+        console.log('POST /api/messages - Incoming Teams message', requestInfo);
 
         // Teams AI SDK handles authentication internally via TeamsAdapter
         // Process the request through Teams AI application
@@ -223,7 +215,7 @@ async function startServer() {
           await teamsApp.run(context);
         });
       } catch (error) {
-        logger.error('Error processing bot message', { error });
+        console.error('Error processing bot message', { error });
         
         // Track exception in Application Insights
         trackException(error as Error, {
@@ -248,25 +240,25 @@ async function startServer() {
     const port = process.env.PORT || 3978;
 
     server.listen(port, () => {
-      logger.info('Workbook Teams Bot Server Started', {
+      console.log('🚀 Workbook Teams Bot Server Started', {
         port,
         healthCheck: `http://localhost:${port}/health`,
         botEndpoint: `http://localhost:${port}/api/messages`,
         productionUrl: 'https://workbook-teams-bot.azurewebsites.net',
         environment: process.env.NODE_ENV || 'development'
       });
-      logger.info('='.repeat(50));
+      console.log('='.repeat(50));
     });
 
     return server;
   } catch (error) {
-    logger.error('Failed to start server', { error });
+    console.error('Failed to start server', { error });
     process.exit(1);
   }
 }
 
 // Start the server
 startServer().catch(error => {
-  logger.error('Fatal server error', { error });
+  console.error('Fatal server error', { error });
   process.exit(1);
 });

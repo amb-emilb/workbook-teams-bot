@@ -36,8 +36,6 @@
         "node-cache": "^5.1.2",
         "openai": "4.77.4",
         "restify": "^11.1.0",
-        "winston": "^3.17.0",
-        "winston-transport": "^4.9.0",
         "zod": "^3.25.76"
     },
     "devDependencies": {

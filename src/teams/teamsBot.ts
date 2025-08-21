@@ -21,7 +21,6 @@ import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
-import { logger } from '../services/logger.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -47,7 +46,7 @@ const storage = new MemoryStorage();
  * Initialize Teams bot with Key Vault secrets
  */
 async function initializeTeamsBot() {
-  logger.info('Initializing Teams bot with Key Vault secrets...');
+  console.log('Initializing Teams bot with Key Vault secrets...');
     
   try {
     // Get OpenAI API key from Key Vault
@@ -76,7 +75,7 @@ async function initializeTeamsBot() {
 
     return configuredPlanner;
   } catch (error) {
-    logger.error('Failed to initialize Teams bot', { error });
+    console.error('Failed to initialize Teams bot', { error });
     throw error;
   }
 }
@@ -90,6 +89,8 @@ interface WorkbookTurnState extends TurnState<DefaultConversationState, DefaultU
         lastQuery?: string;
         lastResults?: unknown;
         userPreferences?: Record<string, unknown>;
+        // Add conversation history for persistent context
+        conversationHistory?: Array<{role: 'user' | 'assistant', content: string, timestamp: Date}>;
     };
 }
 
@@ -140,11 +141,12 @@ console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, Mo
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
  * This allows our existing 12 tools to work seamlessly with Teams
+ * Now includes persistent conversation context via Teams AI SDK state
  */
-async function executeMastraAgent(message: string) {
+async function executeMastraAgent(message: string, state: WorkbookTurnState) {
   const startTime = Date.now();
   try {
-    logger.debug('Bridging Teams AI to Mastra Agent', { 
+    console.log('[AGENT EXECUTION] Bridging Teams AI to Mastra Agent', { 
       message: message.substring(0, 100),
       agentCached: !!cachedWorkbookAgent,
       agentInitCount: agentInitializationCount,
@@ -161,7 +163,7 @@ async function executeMastraAgent(message: string) {
       if (!agentFirstInitialized) {
         agentFirstInitialized = new Date();
       }
-      logger.warn('Agent cache miss - initializing agent', { 
+      console.warn('[AGENT CACHE MISS] Initializing agent', { 
         initCount: agentInitializationCount,
         timeSinceFirst: agentFirstInitialized ? Date.now() - agentFirstInitialized.getTime() : 0,
         processId: processId,
@@ -169,7 +171,7 @@ async function executeMastraAgent(message: string) {
         processUptime: Math.floor(process.uptime())
       });
       cachedWorkbookAgent = await createWorkbookAgent();
-      logger.info('Agent successfully cached', { 
+      console.log('[AGENT CACHED] Agent successfully cached', { 
         initCount: agentInitializationCount,
         agentType: cachedWorkbookAgent?.constructor?.name,
         processId: processId,
@@ -177,7 +179,7 @@ async function executeMastraAgent(message: string) {
         memoryAfterInit: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
       });
     } else {
-      logger.debug('Agent cache hit - reusing existing agent', { 
+      console.log('[AGENT CACHE HIT] Reusing existing agent', { 
         initCount: agentInitializationCount,
         agentType: cachedWorkbookAgent?.constructor?.name,
         processId: processId,
@@ -190,7 +192,7 @@ async function executeMastraAgent(message: string) {
     // SECURITY: Input validation and sanitization
     // Check for prompt injection attempts
     if (detectPromptInjection(message)) {
-      logger.logSecurity('Potential prompt injection detected', { message });
+      console.warn('SECURITY: Potential prompt injection detected', { message });
       return 'Your request contains invalid patterns. Please rephrase your query.';
     }
 
@@ -200,16 +202,38 @@ async function executeMastraAgent(message: string) {
     // Validate if it's a search query
     const queryValidation = validateSearchQuery(sanitizedMessage);
     if (!queryValidation.valid) {
-      logger.warn('Invalid query', { error: queryValidation.error });
+      console.warn('Invalid query', { error: queryValidation.error });
       return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
     }
 
-    logger.debug('Input validated and sanitized');
+    console.log('Input validated and sanitized');
 
-    // Execute our existing Mastra agent with sanitized input
-    const response = await cachedWorkbookAgent.generate([
-      { role: 'user', content: queryValidation.sanitized }
-    ]);
+    // Get or initialize conversation context from Teams AI SDK state
+    if (!state.workbookContext) {
+      state.workbookContext = {};
+    }
+    if (!state.workbookContext.conversationHistory) {
+      state.workbookContext.conversationHistory = [];
+    }
+
+    // Build messages with conversation history (last 20 messages = 10 exchanges)
+    const conversationHistory = state.workbookContext.conversationHistory;
+    const messages = [
+      ...conversationHistory.slice(-20).map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      })),
+      { role: 'user' as const, content: queryValidation.sanitized }
+    ];
+
+    console.log('[CONVERSATION CONTEXT] Using conversation history', {
+      historyLength: conversationHistory.length,
+      messagesInContext: messages.length - 1, // Exclude current message
+      contextPreview: messages.slice(-3, -1).map(m => `${m.role}: ${m.content.substring(0, 50)}...`)
+    });
+
+    // Execute our existing Mastra agent with conversation context
+    const response = await cachedWorkbookAgent.generate(messages);
 
     // Extract the response text
     let responseText = '';
@@ -219,20 +243,32 @@ async function executeMastraAgent(message: string) {
       responseText = 'I completed the task successfully.';
     }
 
+    // Update conversation history with both user message and assistant response
+    conversationHistory.push(
+      { role: 'user', content: queryValidation.sanitized, timestamp: new Date() },
+      { role: 'assistant', content: responseText, timestamp: new Date() }
+    );
+
+    // Keep only last 50 exchanges (100 messages) to prevent memory bloat
+    if (conversationHistory.length > 100) {
+      conversationHistory.splice(0, conversationHistory.length - 100);
+    }
+
+    // Update the state (Teams AI SDK automatically persists this)
+    state.workbookContext.conversationHistory = conversationHistory;
+
     const duration = Date.now() - startTime;
-    logger.debug('Mastra agent response received', { 
+    console.log('[AGENT RESPONSE] Mastra agent response received with context updated', { 
       responseLength: responseText.length,
+      duration: duration,
+      historyLength: conversationHistory.length,
       preview: responseText.substring(0, 100) 
-    });
-    logger.logPerformance('mastra_agent_execution', duration, {
-      messageLength: message.length,
-      responseLength: responseText.length
     });
     return responseText;
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error('Error bridging to Mastra agent', { error, duration });
+    console.error('Error bridging to Mastra agent', { error, duration });
     return 'I encountered an error while processing your request. Please try again.';
   }
 }
@@ -254,37 +290,38 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
     await context.sendActivity({ type: 'typing' });
 
     try {
-      // Bridge to our existing Mastra agent
-      const response = await executeMastraAgent(message);
+      // Bridge to our existing Mastra agent with persistent conversation context
+      const response = await executeMastraAgent(message, state);
             
-      // Store context for future turns
-      if (state.workbookContext) {
-        state.workbookContext.lastQuery = message;
-        state.workbookContext.lastResults = response;
+      // Store additional context for future turns (conversation history is managed in executeMastraAgent)
+      if (!state.workbookContext) {
+        state.workbookContext = {};
       }
+      state.workbookContext.lastQuery = message;
+      state.workbookContext.lastResults = response;
       
       // Log bot message exchange
       const userId = context.activity.from?.id || 'unknown';
-      logger.logBotMessage(userId, message, response);
+      console.log('[BOT MESSAGE]', { userId, messageLength: message.length, responseLength: response.length });
             
       // Send the response back to Teams
       await context.sendActivity(response);
 
     } catch (error) {
-      logger.error('Teams message handler error', { error });
+      console.error('Teams message handler error', { error });
       await context.sendActivity('I\'m experiencing technical difficulties. Please try again later.');
     }
   });
 
   // Handle adaptive card submits (for future interactive features)
   app.adaptiveCards.actionSubmit('workbook_action', async (context, state, data) => {
-    logger.debug('Adaptive card action received', { data });
+    console.log('Adaptive card action received', { data });
     await context.sendActivity('Action received and processed.');
   });
 
   // Add logging for debugging - using conversationUpdate as a generic activity handler
   app.conversationUpdate('membersAdded', async (context: TurnContext) => {
-    logger.debug('Processing activity', { 
+    console.log('Processing activity', { 
       type: context.activity.type,
       text: context.activity.text 
     });
