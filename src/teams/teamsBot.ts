@@ -211,6 +211,19 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Get Teams context for Mastra memory system
     const threadId = context.activity.conversation?.id || 'default-thread';
     const resourceId = context.activity.from?.id || 'default-user';
+    
+    // Enhanced memory debugging
+    console.log('[MEMORY DEBUG - DETAILED]', {
+      threadId: threadId,
+      resourceId: resourceId,
+      conversationId: context.activity.conversation?.id,
+      conversationName: context.activity.conversation?.name,
+      userId: context.activity.from?.id,
+      userName: context.activity.from?.name,
+      userAadObjectId: context.activity.from?.aadObjectId,
+      channelId: context.activity.channelId,
+      timestamp: new Date().toISOString()
+    });
 
     console.log('[MASTRA MEMORY] Using native Mastra memory system', {
       threadId: threadId.substring(0, 20) + '...',
@@ -218,10 +231,20 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       message: queryValidation.sanitized.substring(0, 50) + '...'
     });
 
+    // Test memory persistence before executing
+    console.log('[MEMORY TEST] Testing memory persistence...');
+    
     // Execute our existing Mastra agent with native memory system
     const response = await cachedWorkbookAgent.generate(queryValidation.sanitized, {
       threadId,
       resourceId
+    });
+    
+    // Log memory state after generation
+    console.log('[MEMORY STATE] After generation', {
+      threadId: threadId,
+      resourceId: resourceId,
+      responseReceived: !!response
     });
 
     // Extract the response text

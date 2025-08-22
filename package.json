@@ -30,6 +30,7 @@
         "@mastra/libsql": "^0.13.3",
         "@mastra/memory": "^0.13.0",
         "@mastra/mongodb": "^0.13.2",
+        "@mastra/pg": "^0.13.3",
         "@microsoft/teams-ai": "^1.7.4",
         "@types/restify": "^8.5.12",
         "applicationinsights": "^3.9.0",

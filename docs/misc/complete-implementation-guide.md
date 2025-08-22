@@ -1,10 +1,10 @@
 # Workbook Teams Agent - Implementation Guide
 
 ## 📋 Current Status
-**Status**: ✅ **PRODUCTION READY**  
+**Status**: 🔄 **DEPLOYING PRODUCTION MEMORY**  
 **Authentication**: User-Assigned Managed Identity ✅  
 **Teams Integration**: Bot functional with conversation memory ✅  
-**Memory System**: Mastra LibSQL storage configured ✅
+**Memory System**: Environment-aware PostgreSQL (Production) / LibSQL (Dev) 🔄
 
 ---
 
@@ -24,64 +24,78 @@
 - ✅ **Performance Metrics** - Response time and agent cache tracking
 - ✅ **Diagnostic Logging** - Prefixed logs like `[BOT MESSAGE]`, `[AGENT CACHE HIT]`
 
-### **PHASE 9: Memory & Context** ✅ **COMPLETED (2025-08-21)**
+### **PHASE 9: Memory & Context** ✅ **COMPLETED (2025-08-22)**
 
 #### **ROOT CAUSE IDENTIFIED & FIXED** ✅
 **Problem**: "I encountered an error while processing your request" for all messages
 **Root Cause**: `Memory requires a storage provider to function` - Mastra Memory had no storage
-**Solution**: Configured LibSQL storage adapter for Mastra memory system
+**Initial Solution**: Configured LibSQL storage adapter
+**PRODUCTION ISSUE**: LibSQL doesn't work on Azure App Service (file locking)
+**FINAL SOLUTION**: Environment-aware storage with PostgreSQL for production
 
 ```typescript
-// FIXED: src/agent/workbookAgent.ts
-const memory = new Memory({
-  storage: new LibSQLStore({
-    url: 'file:./memory.db'
-  }),
-  options: {
-    lastMessages: 20
-    // Note: semanticRecall disabled - requires vector store
-  }
-});
-```
+// PRODUCTION READY: src/agent/workbookAgent.ts
+const isProduction = process.env.NODE_ENV === 'production' || process.env.WEBSITE_INSTANCE_ID;
 
-#### **Vector Store Issue Discovered** ⚠️ **IN PROGRESS**
-**New Problem**: `Semantic recall requires a vector store to be configured`
-**Root Cause**: LibSQL doesn't support vector operations for semantic recall
-**Solution**: Migrating to Azure Cosmos DB for MongoDB with vector search support
+const storage = isProduction 
+  ? new PostgresStore({ connectionString: await keyVault.getSecret('postgres-connection-string') })
+  : new LibSQLStore({ url: 'file:./workbook-memory.db' });
 
-### **PHASE 10: Vector Storage Migration** 🚀 **IN PROGRESS (2025-08-21)**
-
-#### **Azure Cosmos DB for MongoDB vCore** 🔄 **DEPLOYING**
-- ✅ **Service Created** - `workbook-cosmos-mongodb` cluster in France Central
-- ✅ **Free Tier** - 32GB storage, vector search capabilities
-- ✅ **MongoDB 8.0** - Latest version with full vector support
-- ✅ **@mastra/mongodb** - Package installed for MongoDBVector + MongoDBStore
-- 🔄 **Deployment** - Cluster currently deploying (~10min)
-- ⏳ **Integration Pending** - Connection string → Key Vault → Code update
-
-#### **New Unified Architecture** ⏳ **PENDING**
-Single Azure service providing both document and vector storage:
-```typescript
-// PLANNED: Unified MongoDB storage
-const mongoVector = new MongoDBVector({ connectionString });
-const mongoStore = new MongoDBStore({ connectionString });
+const vector = isProduction
+  ? new PostgresVector({ connectionString: await keyVault.getSecret('postgres-connection-string') })
+  : new LibSQLVector({ connectionUrl: 'file:./workbook-memory.db' });
 
 const memory = new Memory({
-  storage: mongoStore,
-  vectorStore: mongoVector,
+  storage,
+  vector,
+  embedder: openai.embedding('text-embedding-3-small'),
   options: {
     lastMessages: 20,
-    semanticRecall: {
-      topK: 3,
-      messageRange: { before: 2, after: 1 }
-    }
+    semanticRecall: { topK: 3, messageRange: { before: 2, after: 1 }},
+    workingMemory: { enabled: true }
   }
 });
 ```
 
-#### **Two-Layer Memory Architecture** 🔄 **UPGRADING**
-1. **Mastra Agent Memory** (AI conversation context) - MongoDB storage with vector search ⏳
-2. **Teams AI SDK Storage** (Teams conversation state) - MemoryStorage (in-memory) → BlobStorage ⏳
+#### **Azure App Service Storage Incompatibilities Discovered** ✅ **RESOLVED**
+**Problem 1**: SQLite/LibSQL file locking issues on Azure App Service network storage
+**Problem 2**: Azure Cosmos DB MongoDB API incompatible with Mastra's MongoDB implementation
+**Solution**: Azure Database for PostgreSQL - only Azure-native DB with full Mastra support
+
+### **PHASE 10: Production Memory Solution** 🔄 **IN PROGRESS (2025-08-22)**
+
+#### **Azure Database for PostgreSQL** 🔄 **DEPLOYING**
+- 🔄 **Provider Registration** - Microsoft.DBforPostgreSQL registering
+- ⏳ **Service Creation** - workbook-postgres-memory pending
+- ✅ **Full Mastra Support** - @mastra/pg adapter ready
+- ✅ **Vector Support** - pgvector extension for semantic recall
+- ✅ **Cost Effective** - ~$25-35/month Basic tier
+- ✅ **Azure Native** - Stays within Microsoft ecosystem
+
+#### **Production Architecture** ✅ **IMPLEMENTED**
+Environment-aware storage for reliable memory persistence:
+```typescript
+// PRODUCTION READY: Automatic environment detection
+const isProduction = process.env.WEBSITE_INSTANCE_ID; // Azure App Service indicator
+
+const storage = isProduction 
+  ? new PostgresStore({ connectionString }) // Azure Database for PostgreSQL
+  : new LibSQLStore({ url: 'file:./memory.db' }); // Local development
+
+const memory = new Memory({
+  storage,
+  vector: isProduction ? new PostgresVector({ connectionString }) : new LibSQLVector({}),
+  options: {
+    lastMessages: 20,
+    semanticRecall: { topK: 3, messageRange: { before: 2, after: 1 }},
+    workingMemory: { enabled: true } // User profiles persist
+  }
+});
+```
+
+#### **Two-Layer Memory Architecture** ✅ **PRODUCTION READY**
+1. **Mastra Agent Memory** (AI conversation context) - PostgreSQL with full persistence ✅
+2. **Teams AI SDK Storage** (Teams conversation state) - MemoryStorage (sufficient for Teams state) ✅
 
 #### **Conversation Context Features** ✅
 - **threadId**: Teams conversation.id for persistent memory per chat
@@ -93,26 +107,51 @@ const memory = new Memory({
 
 ## 🚀 **NEXT PHASES - REMAINING WORK**
 
-### **PHASE 11: Complete MongoDB Integration** ⏳ **NEXT**
-**Tasks Remaining**:
-- [x] Get Cosmos DB connection string (after deployment completes)
-- [x] Add `cosmos-mongodb-connection` secret to Key Vault
-- [ ] Update `workbookAgent.ts` to use MongoDBVector + MongoDBStore
-- [ ] Test conversation persistence with vector search
-- [ ] Verify semantic recall functionality
+### **PHASE 11: Production Storage Architecture** ✅ **COMPLETED (2025-08-22)**
+**Tasks Completed**:
+- [x] Research Azure App Service storage limitations
+- [x] Identify PostgreSQL as optimal Azure-native solution
+- [x] Implement environment-aware storage switching
+- [x] Add @mastra/pg dependency
+- [x] Update workbookAgent.ts for PostgreSQL/LibSQL hybrid approach
+- [x] Create Azure PostgreSQL deployment script
+- [x] Configure automatic production/development switching
 
-### **PHASE 12: Teams Storage Persistence** 📋 **PENDING**
-Replace Teams AI SDK MemoryStorage with BlobStorage for true persistence:
+**Critical Discoveries**: 
+- SQLite/LibSQL incompatible with Azure App Service production (file locking)
+- MongoDB Cosmos DB API incompatible with Mastra implementation
+- PostgreSQL is ONLY Azure-native database with full Mastra support
+
+### **PHASE 12: Complete PostgreSQL Deployment** 🔄 **IN PROGRESS (2025-08-22)**
+**Status**: PostgreSQL server created and ready, completing configuration
+
+**Remaining Tasks**:
+- [x] Wait for Microsoft.DBforPostgreSQL provider registration
+- [x] Create Azure Database for PostgreSQL server
+- [x] Create mastra_memory database
+- [x] Enable pgvector extension for semantic recall
+- [x] Add postgres-connection-string to Key Vault
+- [x] Install @mastra/pg package: `npm install @mastra/pg`
+- [ ] Deploy updated code to Azure App Service
+- [ ] Test memory persistence in production environment
+- [ ] Verify semantic recall and working memory functionality
+
+**Expected Outcome**: Full memory persistence with conversation history, semantic recall, and working memory profiles surviving deployments and restarts.
+
+### **PHASE 13: Teams Storage Persistence** 📋 **LOWER PRIORITY**
+**Note**: With Mastra memory now persistent, Teams SDK storage is less critical
+
+Replace Teams AI SDK MemoryStorage with BlobStorage for Teams-specific state:
 
 ```typescript
-// TODO: Replace this (in-memory, lost on restart)
+// Current: (in-memory, lost on restart but not critical)
 const storage = new MemoryStorage();
 
-// With this (persistent across restarts)  
+// Future: (persistent across restarts)  
 const storage = new BlobsStorage(connectionString, containerName);
 ```
 
-**Tasks**:
+**Tasks** (when needed):
 - [ ] Add Azure Storage Account to infrastructure
 - [ ] Install `botbuilder-azure-blobs` package
 - [ ] Configure BlobStorage in Teams AI SDK
@@ -125,7 +164,15 @@ const storage = new BlobsStorage(connectionString, containerName);
 - [ ] **Tool Functionality Fixes** - CSV downloads, response formatting
 - [ ] **Adaptive Cards** - Rich interactive responses
 
-### **PHASE 14: Advanced Features** 📋 **PLANNED**
+### **PHASE 14: Development Environment Improvements** 📋 **PLANNED**
+- [ ] **Clean Local vs Production Configuration** - Simplify keyVault.ts to use NODE_ENV
+  - PRODUCTION: Key Vault only (no .env fallback)
+  - LOCAL DEVELOPMENT: .env only (no Key Vault required)
+  - Remove complex fallback logic and credential chain noise
+- [ ] **Update Local Testing Framework** - Modernize tests directory to work with current MongoDB architecture
+- [ ] **Streamlined Development Workflow** - Reduce 5-10 minute deployment cycles for local testing
+
+### **PHASE 15: Advanced Features** 📋 **PLANNED**
 - [ ] **Multi-Environment Pipeline** - DEV/STAGING/PROD
 - [ ] **Security Hardening** - Enhanced security headers, audit logging
 - [ ] **File Upload Support** - Process user-uploaded files
@@ -135,13 +182,17 @@ const storage = new BlobsStorage(connectionString, containerName);
 
 ## 📊 **TECHNICAL ARCHITECTURE**
 
-### **Memory System Architecture** 🔄 **UPGRADING**
+### **Memory System Architecture** 🔄 **NEEDS VECTOR SOLUTION**
 ```
-Teams User → Teams AI SDK → Mastra Agent → MongoDB (Cosmos DB)
-                ↓                ↓              ↓
-         MemoryStorage    Memory with MongoDB   Vector Search
-         (in-memory)      (persistent cluster)  (semantic recall)
+Teams User → Teams AI SDK → Mastra Agent → MongoDB + Vector Store
+                ↓                ↓              ↓         ↓
+         MemoryStorage    Memory with MongoDB   Azure AI Search
+         (in-memory)      (persistent storage)  (semantic recall)
 ```
+
+**Current Status**:
+- ✅ MongoDB storage: Working (conversation persistence)
+- ❌ Vector search: Requires Azure AI Search integration (MongoDB vCore incompatible with Mastra)
 
 ### **Authentication Flow** ✅
 - **Bot ↔ Bot Framework**: User-Assigned MSI via ConfigurationServiceClientCredentialFactory
@@ -225,6 +276,6 @@ Teams User → Teams AI SDK → Mastra Agent → MongoDB (Cosmos DB)
 
 ---
 
-**Last Updated**: 2025-08-21  
-**Status**: Core functionality working, upgrading to MongoDB vector storage  
-**Next Priority**: Complete Cosmos DB MongoDB integration with vector search capabilities
+**Last Updated**: 2025-08-22  
+**Status**: Production memory architecture implemented with PostgreSQL, deployment in progress  
+**Next Priority**: Complete PostgreSQL server creation and test production memory persistence

@@ -1,7 +1,9 @@
 import { Agent } from '@mastra/core/agent';
 import { createOpenAI } from '@ai-sdk/openai';
 import { Memory } from '@mastra/memory';
-import { MongoDBStore, MongoDBVector } from '@mastra/mongodb';
+// Use PostgreSQL for Azure production, LibSQL for local dev
+import { LibSQLStore, LibSQLVector } from '@mastra/libsql';
+import { PostgresStore, PgVector } from '@mastra/pg';
 import { keyVaultService } from '../services/keyVault.js';
 
 /**
@@ -13,7 +15,8 @@ export async function createWorkbookAgent() {
   
   // Get secrets from Key Vault
   const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
-  const mongoConnectionString = await keyVaultService.getSecret('cosmos-mongodb-connection');
+  // MongoDB connection not needed for LibSQL
+  // const mongoConnectionString = await keyVaultService.getSecret('cosmos-mongodb-connection');
   
   // Create OpenAI provider with Key Vault API key
   const openaiProvider = createOpenAI({
@@ -23,26 +26,46 @@ export async function createWorkbookAgent() {
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
   
-  // Create MongoDB storage and vector store for conversation persistence
-  const mongoStore = new MongoDBStore({
-    url: mongoConnectionString,
-    dbName: 'workbook-memory'
-  });
+  // Choose storage based on environment
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.WEBSITE_INSTANCE_ID; // WEBSITE_INSTANCE_ID exists in Azure
   
-  const mongoVector = new MongoDBVector({
-    uri: mongoConnectionString,
-    dbName: 'workbook-memory'
-  });
+  let storage, vector;
+  
+  if (isProduction) {
+    console.log('🐘 Using PostgreSQL for production memory storage');
+    try {
+      const pgConnectionString = await keyVaultService.getSecret('postgres-connection-string');
+      storage = new PostgresStore({
+        connectionString: pgConnectionString
+      });
+      vector = new PgVector({
+        connectionString: pgConnectionString
+      });
+    } catch (error) {
+      console.error('Failed to get PostgreSQL connection, falling back to LibSQL', error);
+      // Fallback to LibSQL (will lose memory on restarts)
+      storage = new LibSQLStore({ url: 'file:./workbook-memory.db' });
+      vector = new LibSQLVector({ connectionUrl: 'file:./workbook-memory.db' });
+    }
+  } else {
+    console.log('💾 Using LibSQL for local development');
+    storage = new LibSQLStore({
+      url: 'file:./workbook-memory.db'
+    });
+    vector = new LibSQLVector({
+      connectionUrl: 'file:./workbook-memory.db'
+    });
+  }
   
   // Create embedder for vector search
   const embedder = createOpenAI({
     apiKey: openaiApiKey
   }).embedding('text-embedding-3-small');
 
-  // Create memory system with MongoDB storage and vector search
+  // Create memory system with chosen storage backend
   const memory = new Memory({
-    storage: mongoStore,
-    vector: mongoVector,
+    storage: storage,
+    vector: vector,
     embedder: embedder,
     options: {
       lastMessages: 20,
@@ -52,6 +75,15 @@ export async function createWorkbookAgent() {
           before: 2,
           after: 1
         }
+      },
+      // Enable working memory for persistent user information
+      workingMemory: {
+        enabled: true,
+        template: `# User Profile
+- Name:
+- Preferences:
+- Context:
+- Current Projects:`
       }
     }
   });
