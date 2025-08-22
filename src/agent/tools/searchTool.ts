@@ -126,48 +126,58 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
 export function createGetContactStatsTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'get-people-stats',
-    description: `Get statistics and overview of the Workbook CRM people database (employees, clients, contacts). Use this tool when users ask for:
-  - Total number of people
-  - Active vs inactive people breakdown
-  - Number of companies/departments in the system
+    description: `Get statistics and overview of the Workbook CRM database. Use this tool when users ask for:
+  - Total number of employees, companies, or contacts
+  - Active vs inactive breakdown
+  - Number of companies in the system
   - Database overview or summary`,
   
     inputSchema: z.object({}), // No input parameters needed
   
     outputSchema: z.object({
-      totalPeople: z.number(),
-      activePeople: z.number(),
-      inactivePeople: z.number(),
+      totalResources: z.number(),
+      employees: z.number(),
       companies: z.number(),
+      projects: z.number(),
+      contacts: z.number(),
       message: z.string()
     }),
   
     execute: async () => {
       try {
-        console.log('📊 Getting people statistics...');
+        console.log('📊 Getting database statistics...');
       
         const statsResponse = await workbookClient.resources.getStats();
       
         if (!statsResponse.success) {
           return {
-            totalPeople: 0,
-            activePeople: 0,
-            inactivePeople: 0,
+            totalResources: 0,
+            employees: 0,
             companies: 0,
-            message: `Error getting people statistics: ${statsResponse.error}`
+            projects: 0,
+            contacts: 0,
+            message: `Error getting statistics: ${statsResponse.error}`
           };
         }
 
         const stats = statsResponse.data!;
         const cacheStatus = statsResponse.cached ? ' (cached)' : '';
+        
+        // Extract counts by TypeId (based on actual data analysis)
+        const typeBreakdown = stats.byResourceType || {};
+        const employees = typeBreakdown[2] || 0; // TypeId 2 = Internal employees
+        const companies = typeBreakdown[6] || 0; // TypeId 6 = Real companies/corporations  
+        const projects = typeBreakdown[3] || 0; // TypeId 3 = Projects/departments
+        const contacts = (typeBreakdown[4] || 0) + (typeBreakdown[10] || 0); // TypeId 4 & 10 = Individual contacts
       
-        const message = `Database contains ${stats.total} total people (${stats.active} active, ${stats.inactive} inactive) with ${stats.withEmail} having emails and ${stats.withCompany} having company information${cacheStatus}.`;
+        const message = `Database contains: ${employees} employees, ${companies} companies, ${projects} projects/departments, and ${contacts} contacts (${stats.total} total resources)${cacheStatus}.`;
       
         return {
-          totalPeople: stats.total,
-          activePeople: stats.active,
-          inactivePeople: stats.inactive,
-          companies: stats.withCompany,
+          totalResources: stats.total,
+          employees: employees,
+          companies: companies,
+          projects: projects,
+          contacts: contacts,
           message: message
         };
       
@@ -175,11 +185,12 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         console.error('❌ Error in getPeopleStatsTool:', error);
       
         return {
-          totalPeople: 0,
-          activePeople: 0,
-          inactivePeople: 0,
+          totalResources: 0,
+          employees: 0,
           companies: 0,
-          message: `Error getting people statistics: ${error instanceof Error ? error.message : 'Unknown error'}`
+          projects: 0,
+          contacts: 0,
+          message: `Error getting statistics: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
       }
     }

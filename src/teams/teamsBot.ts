@@ -236,12 +236,10 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Test memory persistence before executing
     console.log('[MEMORY TEST] Testing memory persistence...');
     
-    // Prepare context message that includes user identity from Teams metadata
-    // This bridges Teams user context to Mastra conversation context
-    const contextualMessage = `[User Context: ${userName} (${resourceId})] ${queryValidation.sanitized}`;
-    
-    // Execute our existing Mastra agent with native memory system and user context
-    const response = await cachedWorkbookAgent.generate(contextualMessage, {
+    // Execute our existing Mastra agent with native memory system
+    // User context is maintained through threadId and resourceId, not in the message
+    // The clean message allows the agent to properly parse and execute tool calls
+    const response = await cachedWorkbookAgent.generate(queryValidation.sanitized, {
       threadId,
       resourceId
     });
@@ -268,7 +266,6 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       threadId: threadId.substring(0, 20) + '...',
       resourceId: resourceId.substring(0, 20) + '...',
       userName: userName,
-      contextualMessageSent: !!contextualMessage,
       preview: responseText.substring(0, 100) 
     });
     return responseText;

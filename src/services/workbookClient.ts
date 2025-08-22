@@ -54,24 +54,28 @@ export class WorkbookClient {
    * Create WorkbookClient from Azure Key Vault (production)
    */
   static async fromKeyVault(): Promise<WorkbookClient> {
-    const NODE_ENV = process.env.NODE_ENV || 'prod';
-    const isDev = NODE_ENV === 'dev';
+    // Detect if running in Azure (production) or locally (development)
+    const isProduction = process.env.NODE_ENV === 'production' || !!process.env.WEBSITE_INSTANCE_ID;
+    const environment = isProduction ? 'PRODUCTION' : 'LOCAL';
 
-    console.log(`🔐 Loading Workbook configuration from Key Vault for ${NODE_ENV.toUpperCase()} environment`);
+    console.log('🔐 Loading Workbook configuration from Key Vault');
+    console.log(`📍 Running in ${environment} environment`);
+    console.log('🎯 Using DEV Workbook API for both environments (as requested)');
 
     try {
-      // Get secrets from Key Vault based on environment
-      const apiKeySecret = isDev ? 'workbook-api-key-dev' : 'workbook-api-key-prod';
-      const passwordSecret = isDev ? 'workbook-password-dev' : 'workbook-password-prod';
+      // ALWAYS use DEV Workbook credentials regardless of environment
+      // This is the user's requirement: both prod and dev use the dev API
+      const apiKeySecret = 'workbook-api-key-dev';
+      const passwordSecret = 'workbook-password-dev';
       
       const secrets = await keyVaultService.getSecrets([
         apiKeySecret,
         passwordSecret
       ]);
 
-      // Base URLs are not secrets, keep them as env vars or constants
-      const baseUrl = isDev ? 'ambitiondemo.workbook.net' : 'ambition.workbook.net';
-      const username = isDev ? 'tg' : 'eob';
+      // ALWAYS use DEV Workbook API (ambitiondemo.workbook.net)
+      const baseUrl = 'ambitiondemo.workbook.net';
+      const username = 'tg';
 
       const config: WorkbookConfig = {
         apiKey: secrets[apiKeySecret],
@@ -81,7 +85,7 @@ export class WorkbookClient {
         timeout: 30000
       };
 
-      console.log(`✅ Workbook Client initialized from Key Vault for ${NODE_ENV.toUpperCase()} environment`);
+      console.log(`✅ Workbook Client initialized with DEV API (${baseUrl})`);
       
       return new WorkbookClient(config);
     } catch (error) {
