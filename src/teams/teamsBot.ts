@@ -211,6 +211,7 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Get Teams context for Mastra memory system
     const threadId = context.activity.conversation?.id || 'default-thread';
     const resourceId = context.activity.from?.id || 'default-user';
+    const userName = context.activity.from?.name || 'Unknown User';
     
     // Enhanced memory debugging
     console.log('[MEMORY DEBUG - DETAILED]', {
@@ -228,14 +229,19 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     console.log('[MASTRA MEMORY] Using native Mastra memory system', {
       threadId: threadId.substring(0, 20) + '...',
       resourceId: resourceId.substring(0, 20) + '...',
+      userName: userName,
       message: queryValidation.sanitized.substring(0, 50) + '...'
     });
 
     // Test memory persistence before executing
     console.log('[MEMORY TEST] Testing memory persistence...');
     
-    // Execute our existing Mastra agent with native memory system
-    const response = await cachedWorkbookAgent.generate(queryValidation.sanitized, {
+    // Prepare context message that includes user identity from Teams metadata
+    // This bridges Teams user context to Mastra conversation context
+    const contextualMessage = `[User Context: ${userName} (${resourceId})] ${queryValidation.sanitized}`;
+    
+    // Execute our existing Mastra agent with native memory system and user context
+    const response = await cachedWorkbookAgent.generate(contextualMessage, {
       threadId,
       resourceId
     });
@@ -261,6 +267,8 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       duration: duration,
       threadId: threadId.substring(0, 20) + '...',
       resourceId: resourceId.substring(0, 20) + '...',
+      userName: userName,
+      contextualMessageSent: !!contextualMessage,
       preview: responseText.substring(0, 100) 
     });
     return responseText;

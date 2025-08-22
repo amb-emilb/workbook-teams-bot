@@ -1,42 +1,41 @@
-import { DefaultAzureCredential, ManagedIdentityCredential } from '@azure/identity';
+import { ManagedIdentityCredential } from '@azure/identity';
 import { SecretClient } from '@azure/keyvault-secrets';
 
 /**
- * Azure Key Vault client for secure secrets management
- * Uses Managed Identity in production, Azure CLI auth in development
+ * Simplified Azure Key Vault client for secure secrets management
+ * PRODUCTION: Key Vault only (no .env fallback)
+ * LOCAL DEVELOPMENT: .env only (no Key Vault required)
  */
 class KeyVaultService {
-  private client: SecretClient;
-  private keyVaultUrl: string;
+  private client: SecretClient | null = null;
+  private isProduction: boolean;
 
   constructor() {
-    // Get Key Vault name from environment variable set by ARM template
-    const keyVaultName = process.env.KEY_VAULT_NAME || 'workbook-bot-kv-3821';
-    this.keyVaultUrl = `https://${keyVaultName}.vault.azure.net/`;
-        
-    // Configure credential based on environment
-    let credential;
+    // Clean environment detection
+    this.isProduction = process.env.NODE_ENV === 'production' || !!process.env.WEBSITE_INSTANCE_ID;
     
-    if (process.env.MICROSOFT_APP_TYPE === 'UserAssignedMSI' || process.env.WEBSITE_SITE_NAME) {
-      // Production: Use User-Assigned MSI directly (cleaner, no credential chain noise)
-      const clientId = process.env.MICROSOFT_APP_ID;
-      credential = new ManagedIdentityCredential({ 
-        clientId: clientId 
+    if (this.isProduction) {
+      // PRODUCTION: Key Vault only
+      const keyVaultName = process.env.KEY_VAULT_NAME || 'workbook-bot-kv-3821';
+      const keyVaultUrl = `https://${keyVaultName}.vault.azure.net/`;
+      
+      const credential = new ManagedIdentityCredential({ 
+        clientId: process.env.MICROSOFT_APP_ID 
       });
-      console.log('🔐 Using User-Assigned Managed Identity for Key Vault');
+      
+      this.client = new SecretClient(keyVaultUrl, credential);
+      console.log('🔐 PRODUCTION: Using Key Vault with User-Assigned MSI');
     } else {
-      // Development: Use DefaultAzureCredential for local Azure CLI auth
-      credential = new DefaultAzureCredential();
-      console.log('🔐 Using DefaultAzureCredential for Key Vault (development)');
+      // LOCAL DEVELOPMENT: Environment variables only
+      console.log('🏠 LOCAL DEVELOPMENT: Using .env environment variables');
     }
-    
-    this.client = new SecretClient(this.keyVaultUrl, credential);
   }
 
   /**
-     * Get a secret value from Key Vault or environment variables
-     * Falls back to environment variables when Key Vault is unavailable
-     */
+   * Get a secret value
+   * PRODUCTION: From Key Vault only
+   * LOCAL DEVELOPMENT: From environment variables only
+   */
   async getSecret(secretName: string): Promise<string> {
     // Map secret names to environment variable names
     const envVarMapping: Record<string, string> = {
@@ -46,47 +45,44 @@ class KeyVaultService {
       'workbook-api-key-dev': 'WORKBOOK_API_KEY_DEV',
       'workbook-api-key-prod': 'WORKBOOK_API_KEY_PROD',
       'workbook-password-dev': 'WORKBOOK_PASSWORD_DEV',
-      'workbook-password-prod': 'WORKBOOK_PASSWORD_PROD'
+      'workbook-password-prod': 'WORKBOOK_PASSWORD_PROD',
+      'postgres-connection-string': 'POSTGRES_CONNECTION_STRING'
     };
 
-    // Only use environment variables for true local development (no Key Vault available)
-    // This detects if we're running locally vs in Azure App Service
-    const isLocalDev = !process.env.KEY_VAULT_NAME && process.env.OPENAI_API_KEY;
-    
-    if (isLocalDev && envVarMapping[secretName]) {
-      const envVar = envVarMapping[secretName];
-      const envValue = process.env[envVar];
-      
-      if (envValue) {
-        console.log(`🏠 LOCAL DEV: Using environment variable for secret: ${secretName} (from ${envVar})`);
-        return envValue;
+    if (this.isProduction) {
+      // PRODUCTION: Key Vault only, no fallback
+      if (!this.client) {
+        throw new Error('Key Vault client not initialized for production');
       }
-    }
 
-    try {
-      console.log(`Retrieving secret from Key Vault: ${secretName}`);
-      const secret = await this.client.getSecret(secretName);
-            
-      if (!secret.value) {
-        throw new Error(`Secret ${secretName} has no value`);
-      }
-            
-      console.log(`Successfully retrieved secret from Key Vault: ${secretName}`);
-      return secret.value;
-    } catch (error) {
-      // Always fall back to environment variables if Key Vault fails
-      if (envVarMapping[secretName]) {
-        const envVar = envVarMapping[secretName];
-        const envValue = process.env[envVar];
+      try {
+        console.log(`🔐 PRODUCTION: Retrieving secret from Key Vault: ${secretName}`);
+        const secret = await this.client.getSecret(secretName);
         
-        if (envValue) {
-          console.log(`⚠️  FALLBACK: Key Vault failed, using environment variable: ${secretName} (from ${envVar})`);
-          return envValue;
+        if (!secret.value) {
+          throw new Error(`Secret ${secretName} has no value`);
         }
+        
+        console.log(`✅ Successfully retrieved secret from Key Vault: ${secretName}`);
+        return secret.value;
+      } catch (error) {
+        console.error(`❌ PRODUCTION: Failed to retrieve secret ${secretName} from Key Vault:`, error);
+        throw new Error(`Failed to retrieve secret ${secretName} from Key Vault: ${error}`);
       }
-      
-      console.error(`Failed to retrieve secret ${secretName}:`, error);
-      throw new Error(`Failed to retrieve secret ${secretName}: ${error}`);
+    } else {
+      // LOCAL DEVELOPMENT: Environment variables only
+      const envVar = envVarMapping[secretName];
+      if (!envVar) {
+        throw new Error(`No environment variable mapping for secret: ${secretName}`);
+      }
+
+      const envValue = process.env[envVar];
+      if (!envValue) {
+        throw new Error(`Environment variable ${envVar} not set for secret: ${secretName}`);
+      }
+
+      console.log(`🏠 LOCAL DEV: Using environment variable: ${secretName} (from ${envVar})`);
+      return envValue;
     }
   }
 
