@@ -137,8 +137,9 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
     outputSchema: z.object({
       totalResources: z.number(),
       employees: z.number(),
-      companies: z.number(),
-      projects: z.number(),
+      clients: z.number(),
+      prospects: z.number(),
+      suppliers: z.number(),
       contacts: z.number(),
       message: z.string()
     }),
@@ -153,8 +154,9 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
           return {
             totalResources: 0,
             employees: 0,
-            companies: 0,
-            projects: 0,
+            clients: 0,
+            prospects: 0,
+            suppliers: 0,
             contacts: 0,
             message: `Error getting statistics: ${statsResponse.error}`
           };
@@ -163,20 +165,25 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         const stats = statsResponse.data!;
         const cacheStatus = statsResponse.cached ? ' (cached)' : '';
         
-        // Extract counts by TypeId (based on actual data analysis)
+        // Extract counts by TypeId (based on correct CRM data analysis)
         const typeBreakdown = stats.byResourceType || {};
         const employees = typeBreakdown[2] || 0; // TypeId 2 = Internal employees
-        const companies = typeBreakdown[6] || 0; // TypeId 6 = Real companies/corporations  
-        const projects = typeBreakdown[3] || 0; // TypeId 3 = Projects/departments
-        const contacts = (typeBreakdown[4] || 0) + (typeBreakdown[10] || 0); // TypeId 4 & 10 = Individual contacts
+        const clients = typeBreakdown[3] || 0; // TypeId 3 = Actual clients/customers
+        const prospects = typeBreakdown[6] || 0; // TypeId 6 = Potential clients  
+        const suppliers = typeBreakdown[4] || 0; // TypeId 4 = Suppliers/vendors
+        const contacts = typeBreakdown[10] || 0; // TypeId 10 = Contact persons for clients
+        
+        // Logical groupings
+        const companies = clients + prospects; // Total business entities
       
-        const message = `Database contains: ${employees} employees, ${companies} companies, ${projects} projects/departments, and ${contacts} contacts (${stats.total} total resources)${cacheStatus}.`;
+        const message = `Database contains: ${employees} employees, ${clients} clients, ${prospects} prospects, ${suppliers} suppliers, and ${contacts} contact persons (${stats.total} total resources)${cacheStatus}.`;
       
         return {
           totalResources: stats.total,
           employees: employees,
-          companies: companies,
-          projects: projects,
+          clients: clients,
+          prospects: prospects,
+          suppliers: suppliers,
           contacts: contacts,
           message: message
         };
@@ -187,8 +194,9 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         return {
           totalResources: 0,
           employees: 0,
-          companies: 0,
-          projects: 0,
+          clients: 0,
+          prospects: 0,
+          suppliers: 0,
           contacts: 0,
           message: `Error getting statistics: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
