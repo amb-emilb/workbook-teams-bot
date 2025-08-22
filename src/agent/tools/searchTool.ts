@@ -172,9 +172,6 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         const prospects = typeBreakdown[6] || 0; // TypeId 6 = Potential clients  
         const suppliers = typeBreakdown[4] || 0; // TypeId 4 = Suppliers/vendors
         const contacts = typeBreakdown[10] || 0; // TypeId 10 = Contact persons for clients
-        
-        // Logical groupings
-        const companies = clients + prospects; // Total business entities
       
         const message = `Database contains: ${employees} employees, ${clients} clients, ${prospects} prospects, ${suppliers} suppliers, and ${contacts} contact persons (${stats.total} total resources)${cacheStatus}.`;
       
