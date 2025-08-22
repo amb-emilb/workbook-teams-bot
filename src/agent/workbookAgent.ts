@@ -26,13 +26,13 @@ export async function createWorkbookAgent() {
   // Import tools dynamically after they're initialized
   const tools = await import('./tools/index.js');
   
-  // Choose storage based on Azure environment (not NODE_ENV)
-  const isAzure = !!process.env.WEBSITE_INSTANCE_ID; // WEBSITE_INSTANCE_ID exists in Azure
+  // Choose storage based on environment
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.WEBSITE_INSTANCE_ID; // WEBSITE_INSTANCE_ID exists in Azure
   
   let storage, vector;
   
-  if (isAzure) {
-    console.log('🐘 Using PostgreSQL for Azure memory storage');
+  if (isProduction) {
+    console.log('🐘 Using PostgreSQL for production memory storage');
     try {
       const pgConnectionString = await keyVaultService.getSecret('postgres-connection-string');
       storage = new PostgresStore({
