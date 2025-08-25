@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(uvx:*)",
+      "Bash(npx:*)",
+      "Bash(npm run build:*)",
+      "mcp__zen__thinkdeep",
+      "mcp__zen__secaudit",
+      "Bash(npm run typecheck:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf /root*)",
+      "Bash(rm -rf /home*)",
+      "Bash(rm -rf /usr*)",
+      "Bash(rm -rf /bin*)",
+      "Bash(rm -rf /etc*)",
+      "Bash(rm -rf /var*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "zen",
+    "Context7"
+  ]
+}

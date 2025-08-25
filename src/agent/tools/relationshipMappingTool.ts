@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, HierarchicalResource, Resource } from '../../services/index.js';
+import { ResourceTypes } from '../../constants/resourceTypes.js';
 
 /**
  * Create relationship mapping tool for visualizing company hierarchies and connections
@@ -106,7 +107,9 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
           if (allResourcesResponse.success && allResourcesResponse.data) {
             targetCompanies = allResourcesResponse.data
-              .filter(r => (r.TypeId === 1 || r.TypeId === 3) && r.ResponsibleResourceId)
+              .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
+                           r.TypeId === ResourceTypes.CLIENT || 
+                           r.TypeId === ResourceTypes.PROSPECT) && r.ResponsibleResourceId)
               .slice(0, 10); // Limit to 10 for performance
           }
         }
@@ -137,7 +140,9 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           
           const directChildren = allResourcesResponse.data.filter(r => 
             r.ParentResourceId === parentId && 
-            (r.TypeId === 1 || r.TypeId === 3) // Companies only
+            (r.TypeId === ResourceTypes.COMPANY || 
+             r.TypeId === ResourceTypes.CLIENT || 
+             r.TypeId === ResourceTypes.PROSPECT) // Companies only
           );
           
           const allChildren: Resource[] = [...directChildren];
@@ -186,7 +191,9 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
               ?.filter(r => 
                 r.ResponsibleResourceId === company.ResponsibleResourceId &&
               r.Id !== company.Id &&
-              (r.TypeId === 1 || r.TypeId === 3) &&
+              (r.TypeId === ResourceTypes.COMPANY || 
+               r.TypeId === ResourceTypes.CLIENT || 
+               r.TypeId === ResourceTypes.PROSPECT) &&
               r.Active // Only show active clients in portfolio
               )
               .slice(0, 5) // Limit for display

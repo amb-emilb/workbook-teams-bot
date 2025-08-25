@@ -43,17 +43,32 @@ export async function createWorkbookAgent() {
       });
     } catch (error) {
       console.error('Failed to get PostgreSQL connection, falling back to LibSQL', error);
-      // Fallback to LibSQL (will lose memory on restarts)
-      storage = new LibSQLStore({ url: 'file:./workbook-memory.db' });
-      vector = new LibSQLVector({ connectionUrl: 'file:./workbook-memory.db' });
+      // Production fallback - uses separate database from development
+      const prodFallbackDb = 'file:./workbook-memory-prod.db';
+      console.log(`  ⚠️ Using production fallback database: ${prodFallbackDb}`);
+      storage = new LibSQLStore({ url: prodFallbackDb });
+      vector = new LibSQLVector({ connectionUrl: prodFallbackDb });
     }
   } else {
     console.log('💾 Using LibSQL for local development');
+    // Determine database path based on environment
+    let dbPath: string;
+    
+    if (process.env.TEST_MODE === 'true' && process.env.MEMORY_DB_PATH) {
+      // Test mode - use timestamped test database
+      dbPath = process.env.MEMORY_DB_PATH;
+      console.log(`  🧪 Test database: ${dbPath}`);
+    } else {
+      // Local development - use dedicated dev database
+      dbPath = 'file:./workbook-memory-dev.db';
+      console.log(`  🔧 Development database: ${dbPath}`);
+    }
+    
     storage = new LibSQLStore({
-      url: 'file:./workbook-memory.db'
+      url: dbPath
     });
     vector = new LibSQLVector({
-      connectionUrl: 'file:./workbook-memory.db'
+      connectionUrl: dbPath
     });
   }
   

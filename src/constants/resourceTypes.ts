@@ -36,4 +36,9 @@ export const AllCompanyTypes = [
   ResourceTypes.COMPANY,
   ResourceTypes.CLIENT,
   ResourceTypes.PROSPECT
-]; // 1 + 780 + 802 = 1,583 total companies
+] as const; // 1 + 780 + 802 = 1,583 total companies
+
+// Helper function for type-safe checking
+export function isCompanyType(typeId: number | undefined): typeId is 1 | 3 | 6 {
+  return typeId !== undefined && AllCompanyTypes.includes(typeId as 1 | 3 | 6);
+}

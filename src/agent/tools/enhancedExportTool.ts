@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
+import { ResourceTypes } from '../../constants/resourceTypes.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -157,16 +158,18 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           totalRecords: resources.length,
           activeCount: resources.filter(r => r.Active).length,
           inactiveCount: resources.filter(r => !r.Active).length,
-          employeeCount: resources.filter(r => r.TypeId === 2).length,
-          contactCount: resources.filter(r => r.TypeId === 10).length,
+          employeeCount: resources.filter(r => r.TypeId === ResourceTypes.EMPLOYEE).length,
+          contactCount: resources.filter(r => r.TypeId === ResourceTypes.CONTACT_PERSON).length,
           companiesWithContacts: new Set(
             resources
-              .filter(r => r.TypeId === 10 && (r.ResourceFolder || r.ProjectName))
+              .filter(r => r.TypeId === ResourceTypes.CONTACT_PERSON && (r.ResourceFolder || r.ProjectName))
               .map(r => r.ResourceFolder || r.ProjectName)
           ).size,
           uniqueCompanies: new Set(
             resources
-              .filter(r => (r.TypeId === 1 || r.TypeId === 3) && r.ResourceFolder)
+              .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
+                           r.TypeId === ResourceTypes.CLIENT || 
+                           r.TypeId === ResourceTypes.PROSPECT) && r.ResourceFolder)
               .map(r => r.ResourceFolder)
           ).size,
           uniqueDepartments: new Set(

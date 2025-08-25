@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
+import { ResourceTypes } from '../../constants/resourceTypes.js';
 
 /**
  * Create portfolio analysis tool for analyzing employee workload and client distribution
@@ -105,7 +106,7 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
         const allResources = allResourcesResponse.data;
       
         // Identify employees (TypeId 2) 
-        let employees = allResources.filter(r => r.TypeId === 2);
+        let employees = allResources.filter(r => r.TypeId === ResourceTypes.EMPLOYEE);
       
         // Filter to specific employee if requested
         if (employeeId) {
@@ -118,8 +119,12 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
           );
         }
       
-        // Identify all clients (TypeId 1 or 3)
-        let allClients = allResources.filter(r => r.TypeId === 1 || r.TypeId === 3);
+        // Identify all clients (TypeId 1, 3, or 6 - Company, Client, Prospect)
+        let allClients = allResources.filter(r => 
+          r.TypeId === ResourceTypes.COMPANY || 
+          r.TypeId === ResourceTypes.CLIENT || 
+          r.TypeId === ResourceTypes.PROSPECT
+        );
       
         // Filter out inactive clients if requested
         if (!includeInactiveClients) {

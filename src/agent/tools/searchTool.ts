@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
+import { ResourceTypes } from '../../constants/resourceTypes.js';
 
 /**
  * Create search people tool for the Workbook CRM system
@@ -167,11 +168,11 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         
         // Extract counts by TypeId (based on correct CRM data analysis)
         const typeBreakdown = stats.byResourceType || {};
-        const employees = typeBreakdown[2] || 0; // TypeId 2 = Internal employees
-        const clients = typeBreakdown[3] || 0; // TypeId 3 = Actual clients/customers
-        const prospects = typeBreakdown[6] || 0; // TypeId 6 = Potential clients  
-        const suppliers = typeBreakdown[4] || 0; // TypeId 4 = Suppliers/vendors
-        const contacts = typeBreakdown[10] || 0; // TypeId 10 = Contact persons for clients
+        const employees = typeBreakdown[ResourceTypes.EMPLOYEE] || 0; // TypeId 2 = Internal employees
+        const clients = typeBreakdown[ResourceTypes.CLIENT] || 0; // TypeId 3 = Actual clients/customers
+        const prospects = typeBreakdown[ResourceTypes.PROSPECT] || 0; // TypeId 6 = Potential clients  
+        const suppliers = typeBreakdown[ResourceTypes.SUPPLIER] || 0; // TypeId 4 = Suppliers/vendors
+        const contacts = typeBreakdown[ResourceTypes.CONTACT_PERSON] || 0; // TypeId 10 = Contact persons for clients
       
         const message = `Database contains: ${employees} employees, ${clients} clients, ${prospects} prospects, ${suppliers} suppliers, and ${contacts} contact persons (${stats.total} total resources)${cacheStatus}.`;
       

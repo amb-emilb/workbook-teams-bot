@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
+import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
 
 /**
  * Create advanced multi-criteria filtering tool for Workbook CRM resources
@@ -101,7 +102,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         // Apply resource type filter
         if (resourceType && resourceType.length > 0) {
           filteredResources = filteredResources.filter(r => resourceType.includes(r.TypeId || 0));
-          const typeNames = resourceType.map(t => t === 1 ? 'Companies' : t === 2 ? 'Employees' : t === 3 ? 'Clients' : `Type${t}`);
+          const typeNames = resourceType.map(t => ResourceTypeNames[t as keyof typeof ResourceTypeNames] || `Type${t}`);
           appliedFilters.push(`Resource types: ${typeNames.join(', ')}`);
         }
       
@@ -158,7 +159,11 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
           console.log('📊 Calculating contact counts for filtering...');
         
           // Filter to companies first for efficiency
-          const companies = filteredResources.filter(r => r.TypeId === 1 || r.TypeId === 3);
+          const companies = filteredResources.filter(r => 
+            r.TypeId === ResourceTypes.COMPANY || 
+            r.TypeId === ResourceTypes.CLIENT || 
+            r.TypeId === ResourceTypes.PROSPECT
+          );
         
           // Get contact counts for each company
           resourcesWithContactCounts = await Promise.all(
@@ -194,8 +199,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         // Format results
         const formattedResources = await Promise.all(
           limitedResources.map(async resource => {
-            const typeNames = { 1: 'Company', 2: 'Employee', 3: 'Client' };
-            const typeName = typeNames[resource.TypeId as keyof typeof typeNames] || `Type${resource.TypeId}`;
+            const typeName = ResourceTypeNames[resource.TypeId as keyof typeof ResourceTypeNames] || `Type${resource.TypeId}`;
           
             // Get responsible employee name if exists
             let responsibleEmployeeName: string | undefined;
@@ -208,7 +212,9 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
             let contactCount: number | undefined;
             if (needsContactCounts) {
               contactCount = 'contactCount' in resource ? (resource as typeof filteredResources[0] & { contactCount: number }).contactCount : undefined;
-            } else if (resource.TypeId === 1 || resource.TypeId === 3) {
+            } else if (resource.TypeId === ResourceTypes.COMPANY || 
+                      resource.TypeId === ResourceTypes.CLIENT || 
+                      resource.TypeId === ResourceTypes.PROSPECT) {
               const contactsResponse = await workbookClient.resources.getContactsForResource(resource.Id);
               contactCount = contactsResponse.success ? (contactsResponse.data?.length || 0) : 0;
             }

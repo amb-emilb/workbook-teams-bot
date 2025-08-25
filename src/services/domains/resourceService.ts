@@ -7,6 +7,7 @@ import {
   ServiceResponse, 
   WorkbookConfig 
 } from '../../types/workbook.types.js';
+import { ResourceTypes } from '../../constants/resourceTypes.js';
 
 /**
  * ResourceService - Manages all people data (employees, clients, contacts)
@@ -184,7 +185,11 @@ export class ResourceService extends BaseService {
     
     for (const id of testIds) {
       const response = await this.getById(id);
-      if (response.success && response.data && (response.data.TypeId === 1 || response.data.TypeId === 3)) {
+      if (response.success && response.data && (
+        response.data.TypeId === ResourceTypes.COMPANY || 
+        response.data.TypeId === ResourceTypes.CLIENT || 
+        response.data.TypeId === ResourceTypes.PROSPECT
+      )) {
         companies.push(response.data);
       }
     }
@@ -338,7 +343,7 @@ export class ResourceService extends BaseService {
   }
 
   /**
-   * Find company resource by name (TypeId 1 or 3 only) - returns first match
+   * Find company resource by name (TypeId 1, 3, or 6 only) - returns first match
    * This allows agents to use natural language like "ADECCO" instead of ID 3811
    */
   async findCompanyByName(companyName: string): Promise<ServiceResponse<Resource | null>> {
@@ -354,9 +359,12 @@ export class ResourceService extends BaseService {
 
     const lowerQuery = companyName.toLowerCase();
     
-    // Search only company resources (TypeId 1 or 3) by Name or ResourceFolder
+    // Search only company resources (TypeId 1=Company, 3=Client, 6=Prospect) by Name or ResourceFolder
+    // Exclude TypeId 2 (Employees) which are NOT companies
     const company = allResourcesResponse.data.find(resource => 
-      (resource.TypeId === 1 || resource.TypeId === 3) &&
+      (resource.TypeId === ResourceTypes.COMPANY || 
+       resource.TypeId === ResourceTypes.CLIENT || 
+       resource.TypeId === ResourceTypes.PROSPECT) &&
       (resource.Name.toLowerCase().includes(lowerQuery) || 
        (resource.ResourceFolder && resource.ResourceFolder.toLowerCase().includes(lowerQuery)))
     );
@@ -369,7 +377,7 @@ export class ResourceService extends BaseService {
   }
 
   /**
-   * Find multiple companies by name pattern (TypeId 1 or 3 only) - returns all matches
+   * Find multiple companies by name pattern (TypeId 1, 3, or 6 only) - returns all matches
    * Use this for queries like "companies containing ACME" or partial name searches
    */
   async findCompaniesByName(namePattern: string): Promise<ServiceResponse<Resource[]>> {
@@ -385,9 +393,12 @@ export class ResourceService extends BaseService {
 
     const lowerQuery = namePattern.toLowerCase();
     
-    // Search only company resources (TypeId 1 or 3) by Name or ResourceFolder - return ALL matches
+    // Search only company resources (TypeId 1=Company, 3=Client, 6=Prospect) by Name or ResourceFolder - return ALL matches
+    // Exclude TypeId 2 (Employees) which are NOT companies
     const companies = allResourcesResponse.data.filter(resource => 
-      (resource.TypeId === 1 || resource.TypeId === 3) &&
+      (resource.TypeId === ResourceTypes.COMPANY || 
+       resource.TypeId === ResourceTypes.CLIENT || 
+       resource.TypeId === ResourceTypes.PROSPECT) &&
       (resource.Name.toLowerCase().includes(lowerQuery) || 
        (resource.ResourceFolder && resource.ResourceFolder.toLowerCase().includes(lowerQuery)))
     );
@@ -400,7 +411,7 @@ export class ResourceService extends BaseService {
   }
 
   /**
-   * Find companies that start with a specific prefix (TypeId 1 or 3 only)
+   * Find companies that start with a specific prefix (TypeId 1, 3, or 6 only)
    * Use this for queries like "companies starting with A"
    */
   async findCompaniesStartingWith(prefix: string): Promise<ServiceResponse<Resource[]>> {
@@ -416,9 +427,12 @@ export class ResourceService extends BaseService {
 
     const lowerPrefix = prefix.toLowerCase();
     
-    // Search only company resources (TypeId 1 or 3) that START with the prefix
+    // Search only company resources (TypeId 1=Company, 3=Client, 6=Prospect) that START with the prefix
+    // Exclude TypeId 2 (Employees) which are NOT companies
     const companies = allResourcesResponse.data.filter(resource => 
-      (resource.TypeId === 1 || resource.TypeId === 3) &&
+      (resource.TypeId === ResourceTypes.COMPANY || 
+       resource.TypeId === ResourceTypes.CLIENT || 
+       resource.TypeId === ResourceTypes.PROSPECT) &&
       resource.Name.toLowerCase().startsWith(lowerPrefix)
     );
 

@@ -164,14 +164,8 @@ const storage = new MemoryStorage();
 const storage = new BlobsStorage(connectionString, containerName);
 ```
 
-**Tasks** (when needed):
-- [ ] Add Azure Storage Account to infrastructure
-- [ ] Install `botbuilder-azure-blobs` package
-- [ ] Configure BlobStorage in Teams AI SDK
-- [ ] Add storage connection string to Key Vault
-
 ### **PHASE 15: Performance & UX Improvements** 📋 **NEXT**
-- [ ] **Test Production Memory Persistence** - Verify PostgreSQL memory works in production
+- [x] **Test Production Memory Persistence** - Verify PostgreSQL memory works in production
 - [ ] **Fix Application Insights Span Export Errors**
 - [ ] **Resolve Container Restart Issues** - Investigate 3-5 minute restarts
 - [ ] **Enhanced Logging** - Direct Application Insights logging vs console.log

@@ -46,3 +46,11 @@ Thumbs.db
 # Test files (keep local only)
 tests/
 exports/
+
+# LibSQL database files (all environments)
+workbook-memory*.db
+workbook-memory*.db-shm
+workbook-memory*.db-wal
+*.db
+*.db-shm
+*.db-wal

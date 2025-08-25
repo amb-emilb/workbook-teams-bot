@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
+import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
 
 /**
  * Create universal search tool that intelligently routes queries to appropriate search methods
@@ -20,8 +21,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
   
     inputSchema: z.object({
       query: z.string()
-        .min(1)
-        .describe('Search query - can be a name, email, company, ID, or any text'),
+        .describe('Search query - can be a name, email, company, ID, or any text. Use "all" for general listing'),
       searchType: z.enum(['auto', 'company', 'person', 'email', 'hierarchy'])
         .default('auto')
         .describe('Search type: auto (intelligent routing), company, person, email, or hierarchy'),
@@ -54,68 +54,80 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
       try {
         const { query, searchType = 'auto', includeInactive = false, maxResults = 10 } = context;
       
-        console.log(`🔍 Universal search for: "${query}" (type: ${searchType})`);
+        // Handle empty or very generic queries
+        const effectiveQuery = query?.trim() || 'all';
+        console.log(`🔍 Universal search for: "${effectiveQuery}" (type: ${searchType})`);
       
         let searchStrategy = '';
         let results: Resource[] = [];
       
         // Determine search strategy
         if (searchType === 'auto') {
-        // Intelligent query analysis
-          const lowerQuery = query.toLowerCase();
+        // Handle empty or very generic queries first
+          if (!effectiveQuery || effectiveQuery === 'all' || effectiveQuery.toLowerCase().includes('list') || effectiveQuery.toLowerCase().includes('show me')) {
+            searchStrategy = 'Complete dataset retrieval';
+            const response = await workbookClient.resources.getAllResourcesComplete();
+            if (response.success && response.data) {
+              results = response.data;
+            }
+          }
+          // Intelligent query analysis
+          else {
+            const lowerQuery = effectiveQuery.toLowerCase();
         
-          // Check if it's a numeric ID
-          if (/^\d+$/.test(query)) {
-            searchStrategy = 'Direct ID lookup';
-            const idNum = parseInt(query);
-            const resourceResponse = await workbookClient.resources.getById(idNum);
+            // Check if it's a numeric ID
+            if (/^\d+$/.test(effectiveQuery)) {
+              searchStrategy = 'Direct ID lookup';
+              const idNum = parseInt(effectiveQuery);
+              const resourceResponse = await workbookClient.resources.getById(idNum);
           
-            if (resourceResponse.success && resourceResponse.data) {
-              results = [resourceResponse.data];
+              if (resourceResponse.success && resourceResponse.data) {
+                results = [resourceResponse.data];
+              }
             }
-          }
-          // Check for email patterns
-          else if (query.includes('@') || query.includes('.com') || query.includes('.dk') || query.includes('.net')) {
-            searchStrategy = 'Email domain search';
-            const domain = query.replace('@', '');
-            const response = await workbookClient.resources.searchByEmailDomain(domain);
-            if (response.success && response.data) {
-              results = response.data;
+            // Check for email patterns
+            else if (effectiveQuery.includes('@') || effectiveQuery.includes('.com') || effectiveQuery.includes('.dk') || effectiveQuery.includes('.net')) {
+              searchStrategy = 'Email domain search';
+              const domain = effectiveQuery.replace('@', '');
+              const response = await workbookClient.resources.searchByEmailDomain(domain);
+              if (response.success && response.data) {
+                results = response.data;
+              }
             }
-          }
-          // Single letter - use "starts with"
-          else if (query.length === 1 && /^[A-Za-z]$/.test(query)) {
-            searchStrategy = 'Alphabetical "starts with" search';
-            const response = await workbookClient.resources.findCompaniesStartingWith(query);
-            if (response.success && response.data) {
-              results = response.data;
+            // Single letter - use "starts with"
+            else if (effectiveQuery.length === 1 && /^[A-Za-z]$/.test(effectiveQuery)) {
+              searchStrategy = 'Alphabetical "starts with" search';
+              const response = await workbookClient.resources.findCompaniesStartingWith(effectiveQuery);
+              if (response.success && response.data) {
+                results = response.data;
+              }
             }
-          }
-          // Company indicators
-          else if (lowerQuery.includes('corp') || lowerQuery.includes('inc') || 
+            // Company indicators
+            else if (lowerQuery.includes('corp') || lowerQuery.includes('inc') || 
                  lowerQuery.includes('ltd') || lowerQuery.includes('company') ||
                  lowerQuery.includes('a/s') || lowerQuery.includes('aps')) {
-            searchStrategy = 'Company name search';
-            const response = await workbookClient.resources.searchByCompany(query);
-            if (response.success && response.data) {
-              results = response.data;
+              searchStrategy = 'Company name search';
+              const response = await workbookClient.resources.searchByCompany(effectiveQuery);
+              if (response.success && response.data) {
+                results = response.data;
+              }
             }
-          }
-          // Check if query contains "starting with" or "begins with"
-          else if (lowerQuery.includes('starting with') || lowerQuery.includes('begins with')) {
-            searchStrategy = 'Prefix search';
-            const prefix = query.split(/starting with|begins with/i)[1]?.trim() || query;
-            const response = await workbookClient.resources.findCompaniesStartingWith(prefix);
-            if (response.success && response.data) {
-              results = response.data;
+            // Check if query contains "starting with" or "begins with"
+            else if (lowerQuery.includes('starting with') || lowerQuery.includes('begins with')) {
+              searchStrategy = 'Prefix search';
+              const prefix = effectiveQuery.split(/starting with|begins with/i)[1]?.trim() || effectiveQuery;
+              const response = await workbookClient.resources.findCompaniesStartingWith(prefix);
+              if (response.success && response.data) {
+                results = response.data;
+              }
             }
-          }
-          // Default to name search
-          else {
-            searchStrategy = 'Name and initials search';
-            const response = await workbookClient.resources.searchByName(query);
-            if (response.success && response.data) {
-              results = response.data;
+            // Default to name search
+            else {
+              searchStrategy = 'Name and initials search';
+              const response = await workbookClient.resources.searchByName(effectiveQuery);
+              if (response.success && response.data) {
+                results = response.data;
+              }
             }
           }
         }
@@ -141,7 +153,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
           const response = await workbookClient.resources.searchByName(query);
           if (response.success && response.data) {
           // Filter to employees only (TypeId 2)
-            results = response.data.filter((r) => r.TypeId === 2);
+            results = response.data.filter((r) => r.TypeId === ResourceTypes.EMPLOYEE);
           }
         }
         else if (searchType === 'email') {
@@ -171,7 +183,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
         const limitedResults = results.slice(0, maxResults);
       
         // Format results with match reasons
-        const typeNames = { 1: 'Company', 2: 'Employee', 3: 'Client' };
+        const typeNames = ResourceTypeNames;
         const formattedResults = limitedResults.map((resource) => {
           const typeName = typeNames[resource.TypeId as keyof typeof typeNames] || `Type${resource.TypeId}`;
         

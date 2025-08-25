@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
+import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
 
 /**
  * Create data quality analysis tool for Workbook CRM
@@ -107,7 +108,7 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
       
         // Email validation regex
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const typeNames = { 1: 'Company', 2: 'Employee', 3: 'Client' };
+        const typeNames = ResourceTypeNames;
       
         // Analyze issues
         const issues = {
@@ -127,7 +128,9 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
             })),
           
           orphanedRecords: resources
-            .filter(r => (r.TypeId === 1 || r.TypeId === 3) && !r.ResponsibleResourceId)
+            .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
+                         r.TypeId === ResourceTypes.CLIENT || 
+                         r.TypeId === ResourceTypes.PROSPECT) && !r.ResponsibleResourceId)
             .map(r => ({
               id: r.Id,
               name: r.Name || 'Unknown',
@@ -183,7 +186,7 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
         const completeResources = resources.filter(r => 
           r.Name && r.Name.trim() !== '' &&
         r.Email && r.Email.trim() !== '' && emailRegex.test(r.Email) &&
-        (r.TypeId === 2 || r.ResponsibleResourceId) // Employees don't need ResponsibleResourceId
+        (r.TypeId === ResourceTypes.EMPLOYEE || r.ResponsibleResourceId) // Employees don't need ResponsibleResourceId
         );
       
         const completeness = totalResources > 0 ? Math.round((completeResources.length / totalResources) * 100) : 0;
