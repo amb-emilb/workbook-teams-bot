@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
+import { fileStorageService } from '../../routes/fileRoutes.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -34,7 +35,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
       // Filtering options
       resourceTypes: z.array(z.number())
         .optional()
-        .describe('Filter by resource types (2=Employee, 10=Contact)'),
+        .describe('Filter by resource types: 1=Company, 2=Employee, 3=Client, 4=Supplier, 6=Prospect, 10=Contact Person. For "companies" use [1,3,6]'),
       active: z.boolean()
         .optional()
         .describe('Filter by active status'),
@@ -71,10 +72,9 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         .describe('Custom filename (auto-generated if not provided)'),
     
       limit: z.number()
-        .min(1)
-        .max(5000)
+        .min(0)
         .optional()
-        .describe('Limit number of records (default: no limit)')
+        .describe('Limit number of records (0 or undefined for no limit)')
     }),
   
     outputSchema: z.object({
@@ -96,7 +96,8 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
       }).optional(),
       exportedFields: z.array(z.string()),
       exportTime: z.string(),
-      fileSize: z.string().optional()
+      fileSize: z.string().optional(),
+      downloadUrl: z.string().optional()
     }),
   
     execute: async ({ context }) => {
@@ -142,8 +143,8 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           resources = resources.filter(r => r.Active);
         }
       
-        // Apply limit
-        if (limit) {
+        // Apply limit only if specified and greater than 0
+        if (limit && limit > 0) {
           resources = resources.slice(0, limit);
         }
 
@@ -219,26 +220,62 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         }
 
         // Save to file if requested
+        let downloadUrl: string | undefined;
         if (saveToFile) {
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const defaultFileName = `workbook-export-${format}-${timestamp}`;
           const actualFileName = fileName || defaultFileName;
           const fileExtension = format === 'csv' ? 'csv' : 
             format === 'json' ? 'json' : 'txt';
-        
-          const exportsDir = path.join(process.cwd(), 'exports');
-          if (!fs.existsSync(exportsDir)) {
-            fs.mkdirSync(exportsDir, { recursive: true });
-          }
-        
-          filePath = path.join(exportsDir, `${actualFileName}.${fileExtension}`);
-          fs.writeFileSync(filePath, exportData, 'utf-8');
-        
-          // Calculate file size
+          
+          const fullFileName = `${actualFileName}.${fileExtension}`;
           const fileSizeBytes = Buffer.byteLength(exportData, 'utf-8');
           fileSize = formatFileSize(fileSizeBytes);
-        
-          console.log(`💾 Export saved to: ${filePath}`);
+
+          // Use PostgreSQL file storage for Teams compatibility
+          if (fileStorageService) {
+            try {
+              const contentType = format === 'csv' ? 'text/csv' :
+                format === 'json' ? 'application/json' : 'text/plain';
+              
+              const result = await fileStorageService.storeFile({
+                filename: fullFileName,
+                content: exportData,
+                content_type: contentType,
+                expires_hours: 24, // Files expire after 24 hours
+                max_downloads: 100 // Allow up to 100 downloads
+              });
+              
+              filePath = `PostgreSQL Storage: ${result.fileId}`;
+              downloadUrl = result.downloadUrl;
+              
+              console.log(`💾 Export saved to PostgreSQL storage: ${fullFileName} (${fileSize})`);
+              console.log(`📥 Download URL: ${downloadUrl}`);
+              
+            } catch (error) {
+              console.warn('⚠️ Failed to store in PostgreSQL, falling back to local:', error);
+              
+              // Fallback to local storage
+              const exportsDir = path.join(process.cwd(), 'exports');
+              if (!fs.existsSync(exportsDir)) {
+                fs.mkdirSync(exportsDir, { recursive: true });
+              }
+              
+              filePath = path.join(exportsDir, fullFileName);
+              fs.writeFileSync(filePath, exportData, 'utf-8');
+              console.log(`💾 Export saved locally: ${filePath}`);
+            }
+          } else {
+            // Local storage fallback
+            const exportsDir = path.join(process.cwd(), 'exports');
+            if (!fs.existsSync(exportsDir)) {
+              fs.mkdirSync(exportsDir, { recursive: true });
+            }
+            
+            filePath = path.join(exportsDir, fullFileName);
+            fs.writeFileSync(filePath, exportData, 'utf-8');
+            console.log(`💾 Export saved locally (no PostgreSQL): ${filePath}`);
+          }
         }
 
         console.log(`✅ Export completed: ${stats.totalRecords} records in ${format} format`);
@@ -253,7 +290,8 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           statistics: stats,
           exportedFields: exportFields,
           exportTime: new Date().toISOString(),
-          fileSize
+          fileSize,
+          downloadUrl
         };
 
       } catch (error) {

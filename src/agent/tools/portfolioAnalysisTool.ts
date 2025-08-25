@@ -33,10 +33,9 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
         .default(false)
         .describe('Whether to include inactive clients in the analysis'),
       topClientsLimit: z.number()
-        .min(1)
-        .max(10)
-        .default(5)
-        .describe('Number of top clients to show per employee (1-10, default: 5)'),
+        .min(0)
+        .default(0)
+        .describe('Number of top clients to show per employee (0 for all, default: all)'),
       analysisMode: z.enum(['summary', 'detailed', 'top-performers'])
         .default('summary')
         .describe('Analysis mode: summary (client counts only), detailed (with contacts), top-performers (top 10 employees)')

@@ -3,6 +3,7 @@ import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
+import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -40,6 +41,9 @@ async function initializeServer() {
 
     // Initialize Teams AI application (includes TeamsAdapter)
     const teamsApp = await createConfiguredTeamsBot();
+
+    // Initialize file storage for Teams downloads
+    await initializeFileRoutes();
 
     return { teamsApp };
   } catch (error) {
@@ -231,6 +235,30 @@ async function startServer() {
       }
     });
 
+    // File download endpoints for Teams
+    server.get('/api/files/:fileId', async (req, res, next) => {
+      await handleFileDownload(req, res);
+      return next();
+    });
+
+    server.get('/api/files', async (req, res, next) => {
+      await handleFileList(req, res);
+      return next();
+    });
+
+    // Cleanup endpoint (for maintenance tasks)
+    server.post('/api/maintenance/cleanup', async (req, res, next) => {
+      try {
+        const deletedCount = await cleanupExpiredFiles();
+        res.json({ success: true, deletedFiles: deletedCount });
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+        res.status(500);
+        res.json({ error: 'Cleanup failed' });
+      }
+      return next();
+    });
+
     // Static file serving for auth flows
     server.get('/static/*', restify.plugins.serveStatic({
       directory: __dirname,
@@ -240,7 +268,7 @@ async function startServer() {
     const port = process.env.PORT || 3978;
 
     server.listen(port, () => {
-      console.log('🚀 Workbook Teams Bot Server Started', {
+      console.log('Workbook Teams Bot Server Started', {
         port,
         healthCheck: `http://localhost:${port}/health`,
         botEndpoint: `http://localhost:${port}/api/messages`,

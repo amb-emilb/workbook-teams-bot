@@ -23,8 +23,7 @@ export function createBulkOperationsTool(workbookClient: WorkbookClient) {
         .describe('Operation type: activate, deactivate, updateEmail, updateFolder, or preview'),
       resourceIds: z.array(z.number())
         .min(1)
-        .max(100)
-        .describe('Array of resource IDs to operate on (1-100 items)'),
+        .describe('Array of resource IDs to operate on'),
       newValues: z.object({
         email: z.string().email().optional(),
         resourceFolder: z.string().optional(),

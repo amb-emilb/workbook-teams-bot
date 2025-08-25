@@ -22,6 +22,11 @@
         "-y",
         "@upstash/context7-mcp"
       ]
+    },
+    "mastra": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@mastra/mcp-docs-server"],
+      "type": "stdio"
     }
   }
 }

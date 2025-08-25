@@ -21,7 +21,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
     inputSchema: z.object({
       resourceType: z.array(z.number())
         .optional()
-        .describe('Resource types to include: [1=Companies, 2=Employees, 3=Clients]. Leave empty for all types.'),
+        .describe('Resource types: 1=Company, 2=Employee, 3=Client, 4=Supplier, 6=Prospect, 10=Contact Person. For "companies" use [1,3,6]. Leave empty for all types.'),
       active: z.boolean()
         .optional()
         .describe('Filter by active status. True=active only, False=inactive only, undefined=both'),
@@ -46,10 +46,9 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         .optional()
         .describe('Maximum number of contacts (for companies only)'),
       limit: z.number()
-        .min(1)
-        .max(100)
-        .default(20)
-        .describe('Maximum number of results to return (1-100, default: 20)')
+        .min(0)
+        .default(0)
+        .describe('Maximum number of results to return (0 for unlimited, default: unlimited)')
     }),
   
     outputSchema: z.object({
@@ -79,7 +78,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
           hasEmail,
           contactCountMin,
           contactCountMax,
-          limit = 20 
+          limit = 0 
         } = context;
       
         console.log('🔍 Starting advanced filter search...');
@@ -194,7 +193,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         }
       
         // Apply limit
-        const limitedResources = filteredResources.slice(0, limit);
+        const limitedResources = limit > 0 ? filteredResources.slice(0, limit) : filteredResources;
       
         // Format results
         const formattedResources = await Promise.all(

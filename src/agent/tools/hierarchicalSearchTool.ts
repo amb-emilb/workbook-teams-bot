@@ -25,10 +25,9 @@ export function createHierarchicalSearchTool(workbookClient: WorkbookClient) {
         .default(true)
         .describe('Whether to include contact persons in the results'),
       limit: z.number()
-        .min(1)
-        .max(10)
-        .default(5)
-        .describe('Maximum number of companies to show (1-10, default: 5)')
+        .min(0)
+        .default(0)
+        .describe('Maximum number of companies to show (0 for unlimited, default: unlimited)')
     }),
   
     outputSchema: z.object({
@@ -49,7 +48,7 @@ export function createHierarchicalSearchTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       try {
-        const { resourceId, includeContacts = true, limit = 5 } = context;
+        const { resourceId, includeContacts = true, limit = 0 } = context;
       
         console.log(`🔍 Fetching hierarchical data${resourceId ? ` for resource ${resourceId}` : ''}`);
       
@@ -72,7 +71,7 @@ export function createHierarchicalSearchTool(workbookClient: WorkbookClient) {
           : resources.filter(r => r.ResponsibleResourceId && r.ResponsibleResourceId > 0);
       
         // Limit the results
-        const limitedCompanies = companies.slice(0, limit);
+        const limitedCompanies = limit > 0 ? companies.slice(0, limit) : companies;
       
         // Build hierarchical data
         const companiesWithDetails = await Promise.all(

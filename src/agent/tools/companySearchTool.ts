@@ -95,7 +95,7 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
           // Build company results (with hierarchy if requested)
           const results = [];
         
-          for (const company of companies.slice(0, 10)) { // Limit to 10 for performance
+          for (const company of companies) {
             if (includeHierarchy) {
               const hierarchyResponse = await workbookClient.resources.getHierarchicalStructure(company.Id);
               const hierarchy = hierarchyResponse.success && hierarchyResponse.data ? hierarchyResponse.data[0] : null;

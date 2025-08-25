@@ -29,10 +29,9 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
         .default(false)
         .describe('Whether to include inactive resources in results'),
       maxResults: z.number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Maximum number of results to return (1-50, default: 10)')
+        .min(0)
+        .default(0)
+        .describe('Maximum number of results to return (0 for unlimited, default: unlimited)')
     }),
   
     outputSchema: z.object({
@@ -52,7 +51,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       try {
-        const { query, searchType = 'auto', includeInactive = false, maxResults = 10 } = context;
+        const { query, searchType = 'auto', includeInactive = false, maxResults = 0 } = context;
       
         // Handle empty or very generic queries
         const effectiveQuery = query?.trim() || 'all';
@@ -180,7 +179,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
         }
       
         // Apply result limit
-        const limitedResults = results.slice(0, maxResults);
+        const limitedResults = maxResults > 0 ? results.slice(0, maxResults) : results;
       
         // Format results with match reasons
         const typeNames = ResourceTypeNames;
@@ -218,7 +217,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
           results: formattedResults,
           searchStrategy,
           totalFound: results.length,
-          message: `EXACT COUNT: Found ${results.length} total results using ${searchStrategy}${results.length > maxResults ? ` (displaying first ${maxResults} results)` : ' (showing all results)'}`
+          message: `EXACT COUNT: Found ${results.length} total results using ${searchStrategy}${maxResults > 0 && results.length > maxResults ? ` (displaying first ${maxResults} results)` : ' (showing all results)'}`
         };
       
       } catch (error) {

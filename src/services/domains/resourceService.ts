@@ -725,7 +725,7 @@ export class ResourceService extends BaseService {
       const hierarchicalResources: HierarchicalResource[] = [];
       
       // Group resources by type (based on user-insights.md)
-      const companies = resources.filter(r => r.TypeId === 1 || r.TypeId === 3); // Client companies
+      const companies = resources.filter(r => r.TypeId === 1 || r.TypeId === 3 || r.TypeId === 6); // All company types: Company, Clients, Prospects
       // const _employees = resources.filter(r => r.TypeId === 2);  // Internal employees - TODO: Use for employee hierarchy
       
       // Process each company

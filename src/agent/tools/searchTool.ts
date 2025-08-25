@@ -24,10 +24,9 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
         .optional()
         .describe('Search query to find people (searches name, email, initials, company fields)'),
       limit: z.number()
-        .min(1)
-        .max(50)
-        .default(10)
-        .describe('Maximum number of results to return (1-50, default: 10)')
+        .min(0)
+        .default(0)
+        .describe('Maximum number of results to return (0 for unlimited, default: unlimited)')
     }),
   
     outputSchema: z.object({
@@ -46,7 +45,7 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       try {
-        const { query, limit = 10 } = context;
+        const { query, limit = 0 } = context;
       
         console.log(`🔍 Searching people with query: "${query || 'all'}", limit: ${limit}`);
       
@@ -84,7 +83,7 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
         const resources = resourcesResponse.data || [];
       
         // Apply limit and format people
-        const limitedResources = resources.slice(0, limit);
+        const limitedResources = limit > 0 ? resources.slice(0, limit) : resources;
         const formattedPeople = limitedResources.map((resource: Resource) => ({
           id: resource.Id,
           name: resource.Name || 'Unknown',

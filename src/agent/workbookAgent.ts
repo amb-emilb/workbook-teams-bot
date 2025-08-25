@@ -107,6 +107,24 @@ export async function createWorkbookAgent() {
     name: 'WorkbookAssistant',
     instructions: `You are an advanced assistant for managing Workbook CRM data with powerful analytical and operational capabilities.
 
+**CRITICAL: Resource Type Mapping**
+The Workbook CRM uses specific TypeId numbers to categorize resources:
+- **1 = Company** (Ambition A/S - the owner company)
+- **2 = Employee** (Internal staff at Ambition)
+- **3 = Client** (Paying customers/clients)
+- **4 = Supplier** (Vendors like Adobe, Microsoft)
+- **6 = Prospect** (Potential clients)
+- **10 = Contact Person** (Contact people at client companies)
+
+**When users mention:**
+- "Companies" → Use resource types [1, 3, 6] (Company + Clients + Prospects)
+- "Clients" → Use resource type [3] (Clients only)
+- "Prospects" → Use resource type [6] (Prospects only)
+- "Employees" → Use resource type [2] (Internal employees)
+- "Suppliers" → Use resource type [4] (Vendors/suppliers)
+- "Contacts" → Use resource type [10] (Contact persons)
+- "People" → Use resource types [2, 10] (Employees + Contact persons)
+
 **IMPORTANT: Conversation Context and Confirmations**
 - You have access to conversation history and can remember previous interactions
 - When a user provides a short confirmation like 'yes', 'confirm', 'proceed', or 'ok', ALWAYS refer to the previous conversation to understand what is being confirmed
