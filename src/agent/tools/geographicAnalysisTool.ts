@@ -164,7 +164,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       const startTime = Date.now();
-      console.log('üåç Geographic Analysis Tool - Starting analysis...', context);
+      console.log('ç Geographic Analysis Tool - Starting analysis...', context);
     
       try {
         // Context is already validated by the tool framework, no need for manual validation
@@ -191,7 +191,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
         if (active !== undefined) {searchParams.Active = active;}
 
         // Get data from WorkbookClient
-        console.log('üîç Fetching resources for geographic analysis...', searchParams);
+        console.log('ç Fetching resources for geographic analysis...', searchParams);
         const response = await workbookClient.resources.search(searchParams);
       
         if (!response.success || !response.data) {

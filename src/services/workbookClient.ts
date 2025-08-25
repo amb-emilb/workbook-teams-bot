@@ -58,9 +58,9 @@ export class WorkbookClient {
     const isProduction = process.env.NODE_ENV === 'production' || !!process.env.WEBSITE_INSTANCE_ID;
     const environment = isProduction ? 'PRODUCTION' : 'LOCAL';
 
-    console.log('üîê Loading Workbook configuration from Key Vault');
+    console.log('ê Loading Workbook configuration from Key Vault');
     console.log(`üìç Running in ${environment} environment`);
-    console.log('üéØ Using DEV Workbook API for both environments (as requested)');
+    console.log('Ø Using DEV Workbook API for both environments (as requested)');
 
     try {
       // ALWAYS use DEV Workbook credentials regardless of environment
@@ -110,7 +110,7 @@ export class WorkbookClient {
    */
   clearAllCaches(): void {
     cacheManager.flush();
-    console.log('üßπ All caches cleared');
+    console.log('π All caches cleared');
   }
 
   /**

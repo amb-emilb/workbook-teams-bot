@@ -146,7 +146,7 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
   
     execute: async () => {
       try {
-        console.log('ðŸ“Š Getting database statistics...');
+        console.log('Š Getting database statistics...');
       
         const statsResponse = await workbookClient.resources.getStats();
       

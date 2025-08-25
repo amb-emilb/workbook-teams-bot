@@ -106,7 +106,7 @@ class CacheManager {
    */
   flush(): void {
     this.cache.flushAll();
-    console.log('๐งน Cache flushed');
+    console.log('น Cache flushed');
   }
 
   /**

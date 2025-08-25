@@ -56,7 +56,7 @@ export class FileStorageService {
     `;
 
     await this.pool.query(createTableQuery);
-    console.log('ðŸ“‚ File storage tables initialized');
+    console.log('‚ File storage tables initialized');
   }
 
   async storeFile(upload: FileUpload): Promise<{ fileId: string; downloadUrl: string }> {

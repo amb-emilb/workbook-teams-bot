@@ -12,7 +12,8 @@
       "Bash(npm run typecheck:*)",
       "Bash(az webapp show:*)",
       "Bash(az webapp deployment list:*)",
-      "Bash(az webapp config appsettings list:*)"
+      "Bash(az webapp config appsettings list:*)",
+      "Bash(find:*)"
     ],
     "deny": [
       "Bash(rm -rf /)",

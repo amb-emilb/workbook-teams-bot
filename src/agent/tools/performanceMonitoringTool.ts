@@ -221,7 +221,7 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
   
     execute: async ({ context }) => {
       const startTime = Date.now();
-      console.log('ðŸ“Š Performance Monitoring Tool - Starting analysis...', context);
+      console.log('Š Performance Monitoring Tool - Starting analysis...', context);
     
       try {
         // Handle legacy 'action' parameter mapping to new 'monitoringType' schema

@@ -12,9 +12,9 @@ export async function initializeFileRoutes() {
   if (connectionString) {
     fileStorageService = new FileStorageService(connectionString);
     await fileStorageService.initialize();
-    console.log('📁 File storage service initialized');
+    console.log('� File storage service initialized');
   } else {
-    console.log('⚠️ No PostgreSQL connection - file storage disabled');
+    console.log('️ No PostgreSQL connection - file storage disabled');
   }
 }
 

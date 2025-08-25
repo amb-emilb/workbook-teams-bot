@@ -81,7 +81,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
           limit = 0 
         } = context;
       
-        console.log('ðŸ” Starting advanced filter search...');
+        console.log(' Starting advanced filter search...');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
@@ -155,7 +155,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         let resourcesWithContactCounts: (typeof filteredResources[0] & { contactCount: number })[] = [];
       
         if (needsContactCounts) {
-          console.log('ðŸ“Š Calculating contact counts for filtering...');
+          console.log('Š Calculating contact counts for filtering...');
         
           // Filter to companies first for efficiency
           const companies = filteredResources.filter(r => 

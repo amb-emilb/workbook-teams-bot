@@ -85,7 +85,7 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           includeInactive = false
         } = context;
       
-        console.log('🗺️ Starting relationship mapping...');
+        console.log('�️ Starting relationship mapping...');
       
         // Determine which companies to map
         let targetCompanies: Resource[] = [];

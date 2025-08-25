@@ -17,7 +17,7 @@ async function initializeTools() {
     return allTools;
   }
 
-  console.log('🔧 Initializing all tools with Key Vault...');
+  console.log('� Initializing all tools with Key Vault...');
   
   // Initialize WorkbookClient from Key Vault
   workbookClient = await WorkbookClient.fromKeyVault();
@@ -76,7 +76,7 @@ async function initializeTools() {
   };
 
   toolsInitialized = true;
-  console.log('✅ All tools initialized with Key Vault configuration');
+  console.log('All tools initialized with Key Vault configuration');
   
   return allTools;
 }

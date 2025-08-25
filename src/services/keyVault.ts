@@ -24,10 +24,10 @@ class KeyVaultService {
       });
       
       this.client = new SecretClient(keyVaultUrl, credential);
-      console.log('üîê PRODUCTION: Using Key Vault with User-Assigned MSI');
+      console.log('ê PRODUCTION: Using Key Vault with User-Assigned MSI');
     } else {
       // LOCAL DEVELOPMENT: Environment variables only
-      console.log('üè† LOCAL DEVELOPMENT: Using .env environment variables');
+      console.log('† LOCAL DEVELOPMENT: Using .env environment variables');
     }
   }
 

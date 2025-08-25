@@ -11,7 +11,7 @@ import { keyVaultService } from '../services/keyVault.js';
  * This ensures consistent OpenAI configuration across the application
  */
 export async function createWorkbookAgent() {
-  console.log('üîê Initializing Workbook agent with Key Vault...');
+  console.log('ê Initializing Workbook agent with Key Vault...');
   
   // Get secrets from Key Vault
   const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
@@ -32,7 +32,7 @@ export async function createWorkbookAgent() {
   let storage, vector;
   
   if (isProduction) {
-    console.log('üêò Using PostgreSQL for production memory storage');
+    console.log('ò Using PostgreSQL for production memory storage');
     try {
       const pgConnectionString = await keyVaultService.getSecret('postgres-connection-string');
       storage = new PostgresStore({
@@ -50,7 +50,7 @@ export async function createWorkbookAgent() {
       vector = new LibSQLVector({ connectionUrl: prodFallbackDb });
     }
   } else {
-    console.log('üíæ Using LibSQL for local development');
+    console.log('æ Using LibSQL for local development');
     // Determine database path based on environment
     let dbPath: string;
     
@@ -202,6 +202,6 @@ Format responses clearly with structured data. Offer to drill deeper or perform 
     memory
   });
 
-  console.log('‚úÖ Workbook agent initialized with Key Vault configuration and memory system');
+  console.log('Workbook agent initialized with Key Vault configuration and memory system');
   return agent;
 }

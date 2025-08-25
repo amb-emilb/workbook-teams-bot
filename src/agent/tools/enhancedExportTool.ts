@@ -101,7 +101,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
     }),
   
     execute: async ({ context }) => {
-      console.log('üì§ Enhanced Export Tool - Starting export...', context);
+      console.log('§ Enhanced Export Tool - Starting export...', context);
     
       try {
         // Context is already validated by the tool framework, no need for manual validation
@@ -129,7 +129,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         if (departmentIds) {searchParams.DepartmentIds = departmentIds;}
 
         // Get data from WorkbookClient
-        console.log('üîç Fetching resources with parameters:', searchParams);
+        console.log('ç Fetching resources with parameters:', searchParams);
         const response = await workbookClient.resources.search(searchParams);
       
         if (!response.success || !response.data) {

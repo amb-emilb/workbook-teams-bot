@@ -82,7 +82,7 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
           analysisMode = 'summary'
         } = context;
       
-        console.log('ðŸ“Š Starting portfolio analysis...');
+        console.log('Š Starting portfolio analysis...');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();

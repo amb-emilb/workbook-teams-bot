@@ -7,7 +7,7 @@ import { keyVaultService } from '../services/keyVault.js';
  * Uses GPT-4o instead of GPT-4-turbo to reduce token costs
  */
 export async function createTestWorkbookAgent() {
-  console.log('🧪 Initializing test Workbook agent with cost-effective model...');
+  console.log('Initializing test Workbook agent with cost-effective model...');
   
   // Get OpenAI API key from Key Vault or environment
   let openaiApiKey: string;
@@ -51,6 +51,6 @@ export async function createTestWorkbookAgent() {
     tools: await tools.getAllTools()
   });
 
-  console.log('✅ Test Workbook agent initialized with gpt-4o model');
+  console.log('Test Workbook agent initialized with gpt-4o model');
   return agent;
 }
