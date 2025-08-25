@@ -29,7 +29,7 @@ initializeTelemetry();
  * Initialize server with environment variables for Teams AI
  */
 async function initializeServer() {
-  console.log('[SERVER INIT] Starting Teams AI server initialization...');
+  console.log('[SERVER INIT] Starting Teams AI server initialization with new Azure credentials...');
   console.log('[SERVER INIT] Environment check:', {
     nodeEnv: process.env.NODE_ENV,
     port: process.env.PORT,
