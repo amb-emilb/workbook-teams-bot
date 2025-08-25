@@ -3,7 +3,8 @@ import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
-import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
+// TEMPORARILY DISABLED: File routes imports during debugging
+// import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -28,26 +29,50 @@ initializeTelemetry();
  * Initialize server with environment variables for Teams AI
  */
 async function initializeServer() {
-  console.log('Initializing Teams AI server...');
+  console.log('[SERVER INIT] Starting Teams AI server initialization...');
+  console.log('[SERVER INIT] Environment check:', {
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT,
+    hasAppId: !!process.env.MICROSOFT_APP_ID,
+    appType: process.env.MICROSOFT_APP_TYPE,
+    hasPostgresConn: !!process.env.POSTGRES_CONNECTION_STRING,
+    timestamp: new Date().toISOString()
+  });
     
   try {
+    console.log('[SERVER INIT] Setting up authentication...');
+    
     // For User-Assigned Managed Identity, Teams AI SDK reads MICROSOFT_APP_ID and MICROSOFT_APP_TYPE from environment
     // App Service already has these configured: MICROSOFT_APP_ID=1a915ea6... and MICROSOFT_APP_TYPE=UserAssignedMSI
     // No password needed - Azure handles authentication automatically
-    console.log('Using User-Assigned Managed Identity authentication', {
+    console.log('[SERVER INIT] Using User-Assigned Managed Identity authentication', {
       appType: process.env.MICROSOFT_APP_TYPE || 'UserAssignedMSI',
       appId: process.env.MICROSOFT_APP_ID?.substring(0, 8) + '...'
     });
 
+    console.log('[SERVER INIT] Creating Teams bot application...');
+    const startTeamsInit = Date.now();
+    
     // Initialize Teams AI application (includes TeamsAdapter)
     const teamsApp = await createConfiguredTeamsBot();
+    
+    const teamsInitDuration = Date.now() - startTeamsInit;
+    console.log(`[SERVER INIT] Teams bot created successfully in ${teamsInitDuration}ms`);
 
-    // Initialize file storage for Teams downloads
-    await initializeFileRoutes();
+    // TEMPORARILY DISABLED: File storage initialization to isolate hanging issue
+    console.log('[SERVER INIT] File storage DISABLED during debugging');
+    console.log('[SERVER INIT] Skipping initializeFileRoutes() to test if this was causing startup hang');
+    
+    // await initializeFileRoutes();
 
+    console.log('[SERVER INIT] Server initialization completed successfully');
     return { teamsApp };
   } catch (error) {
-    console.error('Failed to initialize server', { error });
+    console.error('[SERVER INIT] CRITICAL: Failed to initialize server', { 
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 }
@@ -202,24 +227,52 @@ async function startServer() {
 
     // Teams AI messages endpoint - uses integrated TeamsAdapter
     server.post('/api/messages', async (req, res) => {
+      console.log('[MESSAGE ENDPOINT] Received POST to /api/messages');
+      console.log('[MESSAGE ENDPOINT] Request details:', {
+        hasBody: !!req.body,
+        bodyType: req.body?.type,
+        hasAuthHeader: !!req.headers.authorization,
+        userAgent: req.headers['user-agent'],
+        source: req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+        timestamp: new Date().toISOString()
+      });
+
       try {
+        console.log('[MESSAGE ENDPOINT] Starting Teams AI processing...');
+        
         // Log incoming request details for security monitoring
         const requestInfo = {
           hasAuthHeader: !!req.headers.authorization,
           activityType: req.body?.type || 'unknown',
           source: req.headers['x-forwarded-for'] || req.connection.remoteAddress
         };
-        console.log('POST /api/messages - Incoming Teams message', requestInfo);
+        console.log('[MESSAGE ENDPOINT] Teams message details:', requestInfo);
 
+        console.log('[MESSAGE ENDPOINT] Getting adapter from teamsApp...');
         // Teams AI SDK handles authentication internally via TeamsAdapter
         // Process the request through Teams AI application
         const adapter = teamsApp.adapter as CloudAdapter;
+        console.log('[MESSAGE ENDPOINT] Adapter obtained, calling adapter.process...');
+        
         await adapter.process(req, res, async (context: TurnContext) => {
+          console.log('[MESSAGE ENDPOINT] Inside adapter.process callback');
+          console.log('[MESSAGE ENDPOINT] Context activity type:', context.activity?.type);
+          console.log('[MESSAGE ENDPOINT] Context activity text:', context.activity?.text?.substring(0, 50));
+          
           // Teams AI application will handle the request
+          console.log('[MESSAGE ENDPOINT] Calling teamsApp.run...');
           await teamsApp.run(context);
+          console.log('[MESSAGE ENDPOINT] teamsApp.run completed successfully');
         });
+        
+        console.log('[MESSAGE ENDPOINT] adapter.process completed successfully');
+        
       } catch (error) {
-        console.error('Error processing bot message', { error });
+        console.error('[MESSAGE ENDPOINT] CRITICAL ERROR processing bot message', { 
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : 'No stack trace',
+          timestamp: new Date().toISOString()
+        });
         
         // Track exception in Application Insights
         trackException(error as Error, {
@@ -229,35 +282,38 @@ async function startServer() {
         
         // Don't leak internal errors to potential attackers
         if (!res.headersSent) {
+          console.log('[MESSAGE ENDPOINT] Sending 500 error response');
           res.status(500);
           res.json({ error: 'Internal server error' });
         }
       }
     });
 
-    // File download endpoints for Teams
-    server.get('/api/files/:fileId', async (req, res, next) => {
-      await handleFileDownload(req, res);
-      return next();
-    });
+    // TEMPORARILY DISABLED: File download endpoints during debugging
+    console.log('[SERVER INIT] File download endpoints DISABLED during debugging');
+    
+    // server.get('/api/files/:fileId', async (req, res, next) => {
+    //   await handleFileDownload(req, res);
+    //   return next();
+    // });
 
-    server.get('/api/files', async (req, res, next) => {
-      await handleFileList(req, res);
-      return next();
-    });
+    // server.get('/api/files', async (req, res, next) => {
+    //   await handleFileList(req, res);
+    //   return next();
+    // });
 
-    // Cleanup endpoint (for maintenance tasks)
-    server.post('/api/maintenance/cleanup', async (req, res, next) => {
-      try {
-        const deletedCount = await cleanupExpiredFiles();
-        res.json({ success: true, deletedFiles: deletedCount });
-      } catch (error) {
-        console.error('Error during cleanup:', error);
-        res.status(500);
-        res.json({ error: 'Cleanup failed' });
-      }
-      return next();
-    });
+    // TEMPORARILY DISABLED: Cleanup endpoint during debugging
+    // server.post('/api/maintenance/cleanup', async (req, res, next) => {
+    //   try {
+    //     const deletedCount = await cleanupExpiredFiles();
+    //     res.json({ success: true, deletedFiles: deletedCount });
+    //   } catch (error) {
+    //     console.error('Error during cleanup:', error);
+    //     res.status(500);
+    //     res.json({ error: 'Cleanup failed' });
+    //   }
+    //   return next();
+    // });
 
     // Static file serving for auth flows
     server.get('/static/*', restify.plugins.serveStatic({
@@ -267,15 +323,26 @@ async function startServer() {
     
     const port = process.env.PORT || 3978;
 
+    console.log('[SERVER START] Starting server on port', port);
+    
     server.listen(port, () => {
-      console.log('Workbook Teams Bot Server Started', {
+      console.log('[SERVER START] SUCCESS: Workbook Teams Bot Server Started', {
         port,
         healthCheck: `http://localhost:${port}/health`,
         botEndpoint: `http://localhost:${port}/api/messages`,
         productionUrl: 'https://workbook-teams-bot.azurewebsites.net',
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+        processId: process.pid,
+        uptime: process.uptime()
       });
-      console.log('='.repeat(50));
+      console.log('[SERVER START] Routes registered:');
+      console.log('[SERVER START] - GET /health (health check)');
+      console.log('[SERVER START] - POST /api/messages (Teams bot endpoint)');  
+      console.log('[SERVER START] - GET /api/files/:fileId (file downloads - DISABLED)');
+      console.log('[SERVER START] - GET /api/files (file list - DISABLED)');
+      console.log('[SERVER START] Server ready to receive Teams messages');
+      console.log('='.repeat(80));
     });
 
     return server;
