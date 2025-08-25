@@ -15,10 +15,6 @@ yarn-error.log*
 dist/
 build/
 
-# MCP
-
-.mcp.json
-
 # Logs
 *.log
 logs/
@@ -27,6 +23,9 @@ logs/
 pids
 *.pid
 *.seed
+
+# MCP configuration
+.mcp.json
 *.pid.lock
 
 # Coverage directory used by tools like istanbul

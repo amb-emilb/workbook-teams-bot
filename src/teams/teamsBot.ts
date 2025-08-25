@@ -21,14 +21,34 @@ import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
-import { 
-  ResponseParser, 
-  createCompanyResultsCard, 
-  createContactResultsCard, 
-  createDataQualityCard,
-  createDownloadCard,
-  createStatusCard
-} from './adaptiveCards.js';
+
+// Add detailed logging for Adaptive Cards import
+console.log('[ADAPTIVE CARDS] Starting import of adaptiveCards.js...');
+try {
+  const adaptiveCardsModule = await import('./adaptiveCards.js');
+  console.log('[ADAPTIVE CARDS] Successfully imported adaptiveCards.js');
+  
+  var { 
+    ResponseParser, 
+    createCompanyResultsCard, 
+    createContactResultsCard, 
+    createDataQualityCard,
+    createDownloadCard,
+    createStatusCard
+  } = adaptiveCardsModule;
+  
+  console.log('[ADAPTIVE CARDS] Successfully destructured exports');
+} catch (error) {
+  console.error('[ADAPTIVE CARDS] FAILED to import adaptiveCards.js', { error: error.message, stack: error.stack });
+  // Provide fallback null functions
+  var ResponseParser = null;
+  var createCompanyResultsCard = null;
+  var createContactResultsCard = null;
+  var createDataQualityCard = null;
+  var createDownloadCard = null;
+  var createStatusCard = null;
+}
+
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -150,12 +170,23 @@ console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, Mo
  * Enhance plain text responses with rich Adaptive Cards when appropriate
  */
 async function enhanceResponseWithAdaptiveCards(responseText: string, context: TurnContext): Promise<void> {
-  console.log('[ADAPTIVE CARDS] Analyzing response for card opportunities', {
+  console.log('[ADAPTIVE CARDS] Starting response enhancement...', {
     responseLength: responseText.length,
-    responsePreview: responseText.substring(0, 100)
+    responsePreview: responseText.substring(0, 100),
+    hasResponseParser: !!ResponseParser,
+    hasCardFunctions: !!(createCompanyResultsCard && createContactResultsCard && createDataQualityCard && createDownloadCard && createStatusCard)
   });
 
+  // Check if imports are available
+  if (!ResponseParser) {
+    console.log('[ADAPTIVE CARDS] ResponseParser not available, sending plain text');
+    await context.sendActivity(responseText);
+    return;
+  }
+
   try {
+    console.log('[ADAPTIVE CARDS] Starting card type detection...');
+    
     // Try to parse and enhance with different card types
     
     // 1. Check for data quality analysis
@@ -358,19 +389,28 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
 export async function configureTeamsBotHandlers(app: Application<WorkbookTurnState>) {
   // Handle all messages by bridging to our Mastra agent
   app.message(/.*/, async (context: TurnContext, state: WorkbookTurnState) => {
+    console.log('[MESSAGE HANDLER] Received message, starting processing...');
+    
     const message = context.activity.text || '';
         
     if (!message.trim()) {
+      console.log('[MESSAGE HANDLER] Empty message, sending greeting');
       await context.sendActivity('Hi! I\'m your Workbook assistant. Ask me about resources, companies, or data analysis.');
       return;
     }
+
+    console.log('[MESSAGE HANDLER] Processing message:', message.substring(0, 50) + '...');
 
     // Show typing indicator while processing
     await context.sendActivity({ type: 'typing' });
 
     try {
+      console.log('[MESSAGE HANDLER] Calling executeMastraAgent...');
+      
       // Bridge to our existing Mastra agent with persistent conversation context
       const response = await executeMastraAgent(message, state, context);
+      
+      console.log('[MESSAGE HANDLER] Got response from agent, length:', response?.length || 0);
             
       // Store additional context for future turns (conversation history is managed in executeMastraAgent)
       if (!state.workbookContext) {
