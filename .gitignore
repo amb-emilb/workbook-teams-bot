@@ -15,6 +15,10 @@ yarn-error.log*
 dist/
 build/
 
+# MCP
+
+.mcp.json
+
 # Logs
 *.log
 logs/

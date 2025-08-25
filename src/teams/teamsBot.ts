@@ -9,7 +9,7 @@ import {
   DefaultTempState,
   TeamsAdapter
 } from '@microsoft/teams-ai';
-import { MemoryStorage, TurnContext, ConfigurationServiceClientCredentialFactory } from 'botbuilder';
+import { MemoryStorage, TurnContext, ConfigurationServiceClientCredentialFactory, MessageFactory } from 'botbuilder';
 import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -21,6 +21,14 @@ import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
+import { 
+  ResponseParser, 
+  createCompanyResultsCard, 
+  createContactResultsCard, 
+  createDataQualityCard,
+  createDownloadCard,
+  createStatusCard
+} from './adaptiveCards.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -137,6 +145,73 @@ const moduleId = Math.random().toString(36).substring(7);
 const processId = process.pid;
 
 console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, ModuleID: ${moduleId}, ProcessStart: ${processStartTime.toISOString()}`);
+
+/**
+ * Enhance plain text responses with rich Adaptive Cards when appropriate
+ */
+async function enhanceResponseWithAdaptiveCards(responseText: string, context: TurnContext): Promise<void> {
+  console.log('[ADAPTIVE CARDS] Analyzing response for card opportunities', {
+    responseLength: responseText.length,
+    responsePreview: responseText.substring(0, 100)
+  });
+
+  try {
+    // Try to parse and enhance with different card types
+    
+    // 1. Check for data quality analysis
+    const dataQualityMetrics = ResponseParser.parseDataQuality(responseText);
+    if (dataQualityMetrics) {
+      console.log('[ADAPTIVE CARDS] Creating data quality card', dataQualityMetrics);
+      const card = createDataQualityCard(dataQualityMetrics);
+      await context.sendActivity(MessageFactory.attachment(card));
+      return;
+    }
+
+    // 2. Check for download links
+    const downloadResult = ResponseParser.parseDownloadLink(responseText);
+    if (downloadResult) {
+      console.log('[ADAPTIVE CARDS] Creating download card', downloadResult);
+      const card = createDownloadCard(downloadResult);
+      await context.sendActivity(MessageFactory.attachment(card));
+      return;
+    }
+
+    // 3. Check for company results
+    const companyResults = ResponseParser.parseCompanyResults(responseText);
+    if (companyResults && companyResults.length > 1) {
+      console.log('[ADAPTIVE CARDS] Creating company results card', { count: companyResults.length });
+      const card = createCompanyResultsCard(companyResults);
+      await context.sendActivity(MessageFactory.attachment(card));
+      return;
+    }
+
+    // 4. Check for contact results
+    const contactResults = ResponseParser.parseContactResults(responseText);
+    if (contactResults && contactResults.length > 1) {
+      console.log('[ADAPTIVE CARDS] Creating contact results card', { count: contactResults.length });
+      const card = createContactResultsCard(contactResults);
+      await context.sendActivity(MessageFactory.attachment(card));
+      return;
+    }
+
+    // 5. For other responses, send as regular text but check if we should add a status card
+    if (responseText.includes('successfully') || responseText.includes('completed')) {
+      console.log('[ADAPTIVE CARDS] Adding success status card');
+      const card = createStatusCard('Task Completed', responseText, 'success');
+      await context.sendActivity(MessageFactory.attachment(card));
+      return;
+    }
+
+    // If no specific card type matches, send the original response
+    console.log('[ADAPTIVE CARDS] No card enhancement applied - sending original response');
+    await context.sendActivity(responseText);
+
+  } catch (error) {
+    console.error('[ADAPTIVE CARDS] Error creating adaptive card, falling back to text', { error });
+    // Fallback to original text response
+    await context.sendActivity(responseText);
+  }
+}
 
 /**
  * Bridge function to execute Mastra agent tools through Teams AI
@@ -308,8 +383,8 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
       const userId = context.activity.from?.id || 'unknown';
       console.log('[BOT MESSAGE]', { userId, messageLength: message.length, responseLength: response.length });
             
-      // Send the response back to Teams
-      await context.sendActivity(response);
+      // Enhanced response with Adaptive Cards when appropriate
+      await enhanceResponseWithAdaptiveCards(response, context);
 
     } catch (error) {
       console.error('Teams message handler error', { error });
@@ -317,10 +392,45 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
     }
   });
 
-  // Handle adaptive card submits (for future interactive features)
-  app.adaptiveCards.actionSubmit('workbook_action', async (context, state, data) => {
-    console.log('Adaptive card action received', { data });
-    await context.sendActivity('Action received and processed.');
+  // Handle adaptive card action submits
+  app.adaptiveCards.actionSubmit('company_details', async (context, state, data) => {
+    console.log('[ADAPTIVE CARDS] Company details action', { data });
+    const companyName = data.companyName;
+    if (companyName) {
+      const response = await executeMastraAgent(`Show me detailed information about ${companyName}`, state, context);
+      await enhanceResponseWithAdaptiveCards(response, context);
+    } else {
+      await context.sendActivity('Company information not available.');
+    }
+  });
+
+  app.adaptiveCards.actionSubmit('view_all_companies', async (context, state) => {
+    console.log('[ADAPTIVE CARDS] View all companies action');
+    const response = await executeMastraAgent('Show me all companies with full details', state, context);
+    await enhanceResponseWithAdaptiveCards(response, context);
+  });
+
+  app.adaptiveCards.actionSubmit('view_all_contacts', async (context, state) => {
+    console.log('[ADAPTIVE CARDS] View all contacts action');
+    const response = await executeMastraAgent('Show me all contacts with full details', state, context);
+    await enhanceResponseWithAdaptiveCards(response, context);
+  });
+
+  app.adaptiveCards.actionSubmit('export_data_quality', async (context, state) => {
+    console.log('[ADAPTIVE CARDS] Export data quality action');
+    const response = await executeMastraAgent('Export comprehensive data quality report to CSV', state, context);
+    await enhanceResponseWithAdaptiveCards(response, context);
+  });
+
+  app.adaptiveCards.actionSubmit('data_quality_recommendations', async (context, state) => {
+    console.log('[ADAPTIVE CARDS] Data quality recommendations action');
+    const response = await executeMastraAgent('Give me detailed recommendations to improve our CRM data quality', state, context);
+    await enhanceResponseWithAdaptiveCards(response, context);
+  });
+
+  app.adaptiveCards.actionSubmit('export_options', async (context) => {
+    console.log('[ADAPTIVE CARDS] Export options action');
+    await context.sendActivity('Choose export format:\n• CSV - Comma-separated values\n• Excel - Microsoft Excel format\n• JSON - JavaScript Object Notation\n\nJust ask me to "export as [format]" for your preferred format.');
   });
 
   // Add logging for debugging - using conversationUpdate as a generic activity handler
