@@ -8,7 +8,7 @@
         "teams": "tsx src/teams/index.ts",
         "teams:dev": "tsx watch src/teams/index.ts",
         "dev": "tsx watch src/index.ts",
-        "test:agent": "tsx tests/test-agent-comprehensive.ts", 
+        "test:agent": "tsx tests/test-agent-comprehensive.ts",
         "test:tools": "tsx tests/test-comprehensive.ts",
         "test:memory": "tsx tests/test-memory.ts",
         "test:simple": "tsx tests/test-simple.ts",
