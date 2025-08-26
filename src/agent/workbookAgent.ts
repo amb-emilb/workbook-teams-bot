@@ -173,7 +173,8 @@ The Workbook CRM uses specific TypeId numbers to categorize resources:
 - Examples: "CSV of active clients", "Export Danish prospects", "Download contacts with company info", "Give me all employees", "List of prospects"
 - The tool automatically detects resource types, geographic filters, and required mappings
 - Provides downloadable files via PostgreSQL storage for Teams integration
-- Always mention the file path and download availability when files are created
+- **CRITICAL: Always include the downloadUrl in your response when files are created** - use exact format: "Download link: [downloadUrl]"
+- Always mention the file path, record count, and download availability when files are created
 
 ### For System Monitoring:
 - Use performance-monitoring to check system health and optimization opportunities

@@ -4,7 +4,7 @@ import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
 // PHASE 18: Re-enabling file routes for CSV export functionality
-import { initializeFileRoutes } from '../routes/fileRoutes.js';
+import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -295,20 +295,35 @@ async function startServer() {
       }
     });
 
-    // TEMPORARILY DISABLED: File download endpoints during debugging
-    console.log('[SERVER INIT] File download endpoints DISABLED during debugging');
+    // Re-enable file download endpoints for CSV export functionality
+    console.log('[SERVER INIT] Initializing file download endpoints');
     
-    // server.get('/api/files/:fileId', async (req, res, next) => {
-    //   await handleFileDownload(req, res);
-    //   return next();
-    // });
+    server.get('/api/files/:fileId', async (req, res, next) => {
+      console.log('[FILE DOWNLOAD] Request for file:', req.params.fileId);
+      await handleFileDownload(req, res);
+      return next();
+    });
 
-    // server.get('/api/files', async (req, res, next) => {
-    //   await handleFileList(req, res);
-    //   return next();
-    // });
+    server.get('/api/files', async (req, res, next) => {
+      console.log('[FILE LIST] Request for file list');
+      await handleFileList(req, res);
+      return next();
+    });
 
-    // TEMPORARILY DISABLED: Cleanup endpoint during debugging
+    // Re-enable cleanup endpoint
+    server.post('/api/maintenance/cleanup', async (req, res, next) => {
+      console.log('[FILE CLEANUP] Manual cleanup requested');
+      try {
+        const deletedCount = await cleanupExpiredFiles();
+        res.json({ success: true, deletedFiles: deletedCount });
+        return next();
+      } catch (error) {
+        console.error('[FILE CLEANUP] Error:', error);
+        res.status(500);
+        res.json({ error: 'Cleanup failed' });
+        return next();
+      }
+    });
     // server.post('/api/maintenance/cleanup', async (req, res, next) => {
     //   try {
     //     const deletedCount = await cleanupExpiredFiles();
