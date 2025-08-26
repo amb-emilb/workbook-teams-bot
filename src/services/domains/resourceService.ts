@@ -77,7 +77,7 @@ export class ResourceService extends BaseService {
 
   /**
    * Get all resources (alias for search with no params)
-   * Note: This returns ResourcesRequest data (employees, etc.) not clients
+   * Falls back to getAllResourcesComplete() to get all resource types
    */
   async getAll(): Promise<ServiceResponse<Resource[]>> {
     return this.search();
@@ -156,14 +156,24 @@ export class ResourceService extends BaseService {
     // Get all available resource IDs
     const idsResponse = await this.getAllResourceIds();
     if (!idsResponse.success || !idsResponse.data) {
+      console.log('[RESOURCE DEBUG] getAllResourceIds failed:', idsResponse.error);
       return {
         success: false,
         error: idsResponse.error || 'Failed to get resource IDs'
       };
     }
 
+    console.log(`[RESOURCE DEBUG] Retrieved ${idsResponse.data.length} resource IDs`);
+
     // Batch fetch all resources by ID
     const resourcesResponse = await this.getBulkByIds(idsResponse.data);
+    
+    if (!resourcesResponse.success) {
+      console.log('[RESOURCE DEBUG] getBulkByIds failed:', resourcesResponse.error);
+      return resourcesResponse;
+    }
+    
+    console.log(`[RESOURCE DEBUG] Successfully retrieved ${resourcesResponse.data?.length || 0} complete resources`);
     
     // Cache successful responses for 5 minutes
     if (resourcesResponse.success && resourcesResponse.data) {
@@ -571,16 +581,19 @@ export class ResourceService extends BaseService {
       };
     }
 
-    const allResourcesResponse = await this.getAll();
+    // Use getAllResourcesComplete to ensure we get all resource types
+    const allResourcesResponse = await this.getAllResourcesComplete();
     
     if (!allResourcesResponse.success || !allResourcesResponse.data) {
+      console.log('[STATS DEBUG] getAllResourcesComplete failed:', allResourcesResponse.error);
       return {
         success: false,
-        error: 'Failed to fetch resources for statistics'
+        error: `Failed to fetch resources for statistics: ${allResourcesResponse.error}`
       };
     }
 
     const resources = allResourcesResponse.data;
+    console.log(`[STATS DEBUG] Retrieved ${resources.length} total resources`);
     
     // Calculate stats
     const byResourceType: Record<number, number> = {};
@@ -596,6 +609,8 @@ export class ResourceService extends BaseService {
         departments.add(resource.ResourceFolder);
       }
     });
+    
+    console.log('[STATS DEBUG] Resource breakdown by TypeId:', byResourceType);
     
     const stats = {
       total: resources.length,
@@ -773,6 +788,6 @@ export class ResourceService extends BaseService {
   clearCache(): void {
     cacheManager.delStartWith('resource');
     cacheManager.delStartWith('contact');
-    console.log('¹ Resource and contact cache cleared');
+    console.log('ï¿½ Resource and contact cache cleared');
   }
 }
