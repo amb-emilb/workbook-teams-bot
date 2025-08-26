@@ -309,11 +309,11 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
               filePath = `PostgreSQL Storage: ${result.fileId}`;
               downloadUrl = result.downloadUrl;
               
-              console.log(`💾 Export saved to PostgreSQL storage: ${fullFileName} (${fileSize})`);
-              console.log(`📥 Download URL: ${downloadUrl}`);
+              console.log(`Export saved to PostgreSQL storage: ${fullFileName} (${fileSize})`);
+              console.log(`Download URL: ${downloadUrl}`);
               
             } catch (error) {
-              console.warn('⚠️ Failed to store in PostgreSQL, falling back to local:', error);
+              console.warn('Failed to store in PostgreSQL, falling back to local:', error);
               
               // Fallback to local storage
               const exportsDir = path.join(process.cwd(), 'exports');
@@ -323,7 +323,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
               
               filePath = path.join(exportsDir, fullFileName);
               fs.writeFileSync(filePath, exportData, 'utf-8');
-              console.log(`💾 Export saved locally: ${filePath}`);
+              console.log(`Export saved locally: ${filePath}`);
             }
           } else {
             // Local storage fallback
@@ -334,11 +334,11 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
             
             filePath = path.join(exportsDir, fullFileName);
             fs.writeFileSync(filePath, exportData, 'utf-8');
-            console.log(`💾 Export saved locally (no PostgreSQL): ${filePath}`);
+            console.log(`Export saved locally (no PostgreSQL): ${filePath}`);
           }
         }
 
-        console.log(`✅ Export completed: ${stats.totalRecords} records in ${format} format`);
+        console.log(`Export completed: ${stats.totalRecords} records in ${format} format`);
 
         return {
           success: true,
@@ -355,7 +355,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         };
 
       } catch (error) {
-        console.error('❌ Enhanced Export Tool error:', error);
+        console.error('Enhanced Export Tool error:', error);
         return {
           success: false,
           format: context.format,
@@ -662,6 +662,6 @@ async function enrichResourcesWithDetails(
     return enriched;
   });
   
-  console.log('✅ Resource enrichment complete');
+  console.log('Resource enrichment complete');
   return enrichedResources;
 }
