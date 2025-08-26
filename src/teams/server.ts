@@ -3,8 +3,8 @@ import { createConfiguredTeamsBot } from './teamsBot.js';
 import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
-// TEMPORARILY DISABLED: File routes imports during debugging
-// import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
+// PHASE 18: Re-enabling file routes for CSV export functionality
+import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -59,11 +59,17 @@ async function initializeServer() {
     const teamsInitDuration = Date.now() - startTeamsInit;
     console.log(`[SERVER INIT] Teams bot created successfully in ${teamsInitDuration}ms`);
 
-    // TEMPORARILY DISABLED: File storage initialization to isolate hanging issue
-    console.log('[SERVER INIT] File storage DISABLED during debugging');
-    console.log('[SERVER INIT] Skipping initializeFileRoutes() to test if this was causing startup hang');
-    
-    // await initializeFileRoutes();
+    // PHASE 18: Re-enabling file storage for CSV exports with extensive logging
+    console.log('[SERVER INIT] PHASE 18: Initializing PostgreSQL file storage for CSV exports...');
+    try {
+      const fileInitStart = Date.now();
+      await initializeFileRoutes();
+      const fileInitDuration = Date.now() - fileInitStart;
+      console.log(`[SERVER INIT] PHASE 18: File storage initialized successfully in ${fileInitDuration}ms`);
+    } catch (error) {
+      console.error('[SERVER INIT] PHASE 18: File storage initialization failed:', error);
+      console.log('[SERVER INIT] PHASE 18: Continuing without file storage - CSV exports will use fallback');
+    }
 
     console.log('[SERVER INIT] Server initialization completed successfully');
     return { teamsApp };

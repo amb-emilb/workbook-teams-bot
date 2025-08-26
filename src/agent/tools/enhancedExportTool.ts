@@ -14,14 +14,20 @@ import * as path from 'path';
 export function createEnhancedExportTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'enhanced-export',
-    description: `Export Workbook data in multiple formats with advanced customization. Use this tool to:
-  - Export resource data to CSV, JSON, or formatted text
-  - Custom field selection and filtering
-  - Apply filters by type, status, company, department
-  - Generate formatted reports with statistics
-  - Save exports to files or return as data
+    description: `Intelligent CSV/data export tool that automatically interprets natural language requests. Examples:
+  - "CSV of all active clients with responsible employee" → Exports clients with employee mapping
+  - "Export Danish clients to CSV" → Geographic filtering + CSV format
+  - "Give me all prospects as spreadsheet" → Prospects export in CSV
+  - "Download contact persons with company info" → Contacts with company mapping
+  - "Export all employees with email addresses" → Employee data export
   
-  Supports comprehensive data export with business-friendly formatting.`,
+  The tool intelligently:
+  - Detects resource types from context (clients, prospects, employees, contacts)
+  - Applies geographic filters (Danish, Norwegian, etc.)
+  - Includes responsible employee mapping when requested
+  - Maps contact persons to their companies
+  - Handles active/inactive filtering automatically
+  - Provides downloadable files via PostgreSQL storage`,
   
     inputSchema: z.object({
       format: z.enum(['csv', 'json', 'report', 'statistics'])
@@ -29,8 +35,13 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         .describe('Export format: csv (spreadsheet), json (structured), report (formatted text), statistics (summary)'),
     
       exportType: z.enum(['all', 'filtered', 'custom'])
-        .default('all')
+        .default('filtered')
         .describe('Export scope: all resources, filtered subset, or custom selection'),
+        
+      // Natural language context for intelligent processing
+      userQuery: z.string()
+        .optional()
+        .describe('Original user request for intelligent context processing'),
     
       // Filtering options
       resourceTypes: z.array(z.number())
@@ -46,14 +57,28 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         .optional()
         .describe('Filter by department IDs'),
     
-      // Field selection
+      // Field selection (enhanced for intelligent mapping)
       fields: z.array(z.enum([
         'Id', 'Name', 'Email', 'Phone1', 'Active', 'TypeId', 
-        'ResponsibleResourceId', 'ResourceFolder', 'ProjectName', 'Initials', 
-        'Address1', 'City', 'Country', 'UserLogin'
+        'ResponsibleResourceId', 'ResponsibleEmployee', 'ResourceFolder', 'ProjectName', 'Initials', 
+        'Address1', 'City', 'Country', 'UserLogin', 'CompanyName', 'ContactType'
       ]))
         .optional()
-        .describe('Specific fields to include (if not specified, includes key fields)'),
+        .describe('Specific fields to include (auto-selected based on user request if not specified)'),
+        
+      // Geographic filtering
+      country: z.string()
+        .optional()
+        .describe('Filter by country (e.g., "Denmark", "Norway", detected from user query)'),
+        
+      // Enhanced mapping options for intelligent exports
+      includeResponsibleEmployee: z.boolean()
+        .default(false)
+        .describe('Include responsible employee name and details (auto-enabled for client exports)'),
+        
+      includeCompanyMapping: z.boolean()
+        .default(false)
+        .describe('For contacts, include their company information (auto-enabled for contact exports)'),
     
       includeInactive: z.boolean()
         .default(false)
@@ -101,7 +126,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
     }),
   
     execute: async ({ context }) => {
-      console.log('� Enhanced Export Tool - Starting export...', context);
+      console.log('� Enhanced Export Tool - Starting export...', context);
     
       try {
         // Context is already validated by the tool framework, no need for manual validation
@@ -115,21 +140,36 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           departmentIds,
           fields,
           includeInactive,
+          includeResponsibleEmployee,
+          includeCompanyMapping,
+          country,
+          userQuery,
           saveToFile,
           fileName,
           limit
         } = context;
+        
+        // Intelligent processing based on user query
+        const intelligentContext = userQuery ? processUserQuery(userQuery) : {};
+        console.log('🧠 Intelligent context from user query:', intelligentContext);
 
-        // Build search parameters
+        // Build search parameters with intelligent overrides
         const searchParams: Record<string, string | number | boolean | string[] | number[]> = {};
+        
+        // Apply intelligent context or explicit parameters
+        const finalResourceTypes = resourceTypes || intelligentContext.resourceTypes;
+        const finalCountry = country || intelligentContext.country;
+        const finalActive = active !== undefined ? active : intelligentContext.activeOnly;
+        const finalIncludeResponsible = includeResponsibleEmployee || intelligentContext.includeResponsibleEmployee;
+        const finalIncludeCompany = includeCompanyMapping || intelligentContext.includeCompanyMapping;
       
-        if (resourceTypes) {searchParams.ResourceType = resourceTypes;}
-        if (active !== undefined) {searchParams.Active = active;}
+        if (finalResourceTypes) {searchParams.ResourceType = finalResourceTypes;}
+        if (finalActive !== undefined) {searchParams.Active = finalActive;}
         if (companyIds) {searchParams.CompanyIds = companyIds;}
         if (departmentIds) {searchParams.DepartmentIds = departmentIds;}
 
         // Get data from WorkbookClient
-        console.log('� Fetching resources with parameters:', searchParams);
+        console.log('� Fetching resources with parameters:', searchParams);
         const response = await workbookClient.resources.search(searchParams);
       
         if (!response.success || !response.data) {
@@ -139,8 +179,25 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         let resources = response.data;
       
         // Apply post-fetch filtering
-        if (!includeInactive) {
+        if (!includeInactive && finalActive !== false) {
           resources = resources.filter(r => r.Active);
+        }
+        
+        // Apply geographic filtering
+        if (finalCountry) {
+          const countryLower = finalCountry.toLowerCase();
+          resources = resources.filter(r => 
+            r.Country && r.Country.toLowerCase().includes(countryLower)
+          );
+          console.log(`🌍 Geographic filter applied: ${finalCountry}, ${resources.length} resources remain`);
+        }
+        
+        // Enhanced data mapping
+        if (finalIncludeResponsible || finalIncludeCompany) {
+          resources = await enrichResourcesWithDetails(resources, workbookClient, {
+            includeResponsibleEmployee: finalIncludeResponsible,
+            includeCompanyMapping: finalIncludeCompany
+          });
         }
       
         // Apply limit only if specified and greater than 0
@@ -148,11 +205,13 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           resources = resources.slice(0, limit);
         }
 
-        // Define default fields if none specified
-        const exportFields = fields || [
-          'Id', 'Name', 'Email', 'Phone1', 'Active', 'TypeId', 
-          'ResourceFolder', 'Initials', 'City', 'Country'
-        ];
+        // Define intelligent field selection
+        const exportFields = fields || getIntelligentFields(intelligentContext, {
+          includeResponsibleEmployee: finalIncludeResponsible,
+          includeCompanyMapping: finalIncludeCompany
+        });
+        
+        console.log(`📋 Export fields selected:`, exportFields);
 
         // Calculate statistics
         const stats = {
@@ -417,4 +476,191 @@ function formatFileSize(bytes: number): string {
   if (bytes === 0) {return '0 Bytes';}
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Intelligent query processing for natural language requests
+function processUserQuery(query: string): {
+  resourceTypes?: number[];
+  country?: string;
+  activeOnly?: boolean;
+  includeResponsibleEmployee?: boolean;
+  includeCompanyMapping?: boolean;
+  exportType?: string;
+} {
+  const queryLower = query.toLowerCase();
+  const context: any = {};
+  
+  // Detect resource types
+  if (queryLower.includes('client') && !queryLower.includes('prospect')) {
+    context.resourceTypes = [ResourceTypes.CLIENT];
+    context.includeResponsibleEmployee = queryLower.includes('responsible') || queryLower.includes('employee');
+  } else if (queryLower.includes('prospect')) {
+    context.resourceTypes = [ResourceTypes.PROSPECT];
+  } else if (queryLower.includes('employee') && !queryLower.includes('responsible')) {
+    context.resourceTypes = [ResourceTypes.EMPLOYEE];
+  } else if (queryLower.includes('contact') && !queryLower.includes('employee')) {
+    context.resourceTypes = [ResourceTypes.CONTACT_PERSON];
+    context.includeCompanyMapping = queryLower.includes('company') || queryLower.includes('mapped');
+  } else if (queryLower.includes('supplier')) {
+    context.resourceTypes = [ResourceTypes.SUPPLIER];
+  } else if (queryLower.includes('companies') || queryLower.includes('company')) {
+    context.resourceTypes = [ResourceTypes.COMPANY, ResourceTypes.CLIENT, ResourceTypes.PROSPECT];
+  }
+  
+  // Detect geographic filters
+  if (queryLower.includes('danish') || queryLower.includes('denmark')) {
+    context.country = 'Denmark';
+  } else if (queryLower.includes('norwegian') || queryLower.includes('norway')) {
+    context.country = 'Norway';
+  } else if (queryLower.includes('swedish') || queryLower.includes('sweden')) {
+    context.country = 'Sweden';
+  }
+  
+  // Detect active/inactive preference  
+  if (queryLower.includes('active') && !queryLower.includes('inactive')) {
+    context.activeOnly = true;
+  } else if (queryLower.includes('inactive')) {
+    context.activeOnly = false;
+  } else {
+    // Default to active only for most business queries
+    context.activeOnly = true;
+  }
+  
+  // Detect responsible employee mapping
+  if (queryLower.includes('responsible') || queryLower.includes('employee')) {
+    context.includeResponsibleEmployee = true;
+  }
+  
+  // Detect company mapping for contacts
+  if (queryLower.includes('company') || queryLower.includes('mapped')) {
+    context.includeCompanyMapping = true;
+  }
+  
+  return context;
+}
+
+// Get intelligent field selection based on context
+function getIntelligentFields(context: any, options: {
+  includeResponsibleEmployee?: boolean;
+  includeCompanyMapping?: boolean;
+}): string[] {
+  const baseFields = ['Name', 'Email', 'Phone1', 'Active'];
+  
+  // Add fields based on resource type
+  if (context.resourceTypes) {
+    if (context.resourceTypes.includes(ResourceTypes.CLIENT) || 
+        context.resourceTypes.includes(ResourceTypes.PROSPECT)) {
+      baseFields.push('City', 'Country', 'Address1');
+      if (options.includeResponsibleEmployee) {
+        baseFields.push('ResponsibleEmployee');
+      }
+    }
+    
+    if (context.resourceTypes.includes(ResourceTypes.CONTACT_PERSON)) {
+      baseFields.push('Initials');
+      if (options.includeCompanyMapping) {
+        baseFields.push('CompanyName', 'ContactType');
+      }
+    }
+    
+    if (context.resourceTypes.includes(ResourceTypes.EMPLOYEE)) {
+      baseFields.push('Initials');
+      // Note: UserLogin excluded for security reasons
+    }
+  }
+  
+  // Always include ID and TypeId for reference
+  return ['Id', ...baseFields, 'TypeId'];
+}
+
+// Enhanced resource enrichment with responsible employee and company mapping
+async function enrichResourcesWithDetails(
+  resources: Resource[], 
+  workbookClient: WorkbookClient, 
+  options: {
+    includeResponsibleEmployee?: boolean;
+    includeCompanyMapping?: boolean;
+  }
+): Promise<Resource[]> {
+  console.log(`🔄 Enriching ${resources.length} resources with additional details...`);
+  
+  // Get all unique responsible resource IDs and parent company IDs needed
+  const responsibleIds = new Set<number>();
+  const parentCompanyIds = new Set<number>();
+  
+  resources.forEach(resource => {
+    if (options.includeResponsibleEmployee && resource.ResponsibleResourceId) {
+      responsibleIds.add(resource.ResponsibleResourceId);
+    }
+    
+    if (options.includeCompanyMapping && resource.TypeId === ResourceTypes.CONTACT_PERSON) {
+      if (resource.ParentResourceId) {
+        parentCompanyIds.add(resource.ParentResourceId);
+      }
+    }
+  });
+  
+  // Fetch responsible employee details if needed
+  const employeeMap = new Map<number, string>();
+  if (options.includeResponsibleEmployee && responsibleIds.size > 0) {
+    console.log(`👥 Fetching ${responsibleIds.size} responsible employee details...`);
+    
+    for (const empId of responsibleIds) {
+      try {
+        const empResponse = await workbookClient.resources.getById(empId);
+        if (empResponse.success && empResponse.data) {
+          employeeMap.set(empId, empResponse.data.Name || `Employee ${empId}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch employee ${empId}:`, error);
+        employeeMap.set(empId, `Employee ${empId}`);
+      }
+    }
+  }
+  
+  // Fetch parent company details for contact persons if needed
+  const companyMap = new Map<number, string>();
+  if (options.includeCompanyMapping && parentCompanyIds.size > 0) {
+    console.log(`🏢 Fetching ${parentCompanyIds.size} parent company details...`);
+    
+    for (const companyId of parentCompanyIds) {
+      try {
+        const companyResponse = await workbookClient.resources.getById(companyId);
+        if (companyResponse.success && companyResponse.data) {
+          companyMap.set(companyId, companyResponse.data.Name || `Company ${companyId}`);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch company ${companyId}:`, error);
+        companyMap.set(companyId, `Company ${companyId}`);
+      }
+    }
+  }
+  
+  // Enrich resources with additional data
+  const enrichedResources = resources.map(resource => {
+    const enriched = { ...resource } as any;
+    
+    // Add responsible employee name
+    if (options.includeResponsibleEmployee && resource.ResponsibleResourceId) {
+      enriched.ResponsibleEmployee = employeeMap.get(resource.ResponsibleResourceId) || 
+                                   `Employee ${resource.ResponsibleResourceId}`;
+    }
+    
+    // Add company mapping for contacts
+    if (options.includeCompanyMapping && resource.TypeId === ResourceTypes.CONTACT_PERSON) {
+      // Use proper parent company relationship
+      if (resource.ParentResourceId && companyMap.has(resource.ParentResourceId)) {
+        enriched.CompanyName = companyMap.get(resource.ParentResourceId);
+      } else {
+        // Fallback to ResourceFolder/ProjectName if ParentResourceId not available
+        enriched.CompanyName = resource.ResourceFolder || resource.ProjectName || 'Unknown Company';
+      }
+      enriched.ContactType = 'Contact Person';
+    }
+    
+    return enriched;
+  });
+  
+  console.log(`✅ Resource enrichment complete`);
+  return enrichedResources;
 }

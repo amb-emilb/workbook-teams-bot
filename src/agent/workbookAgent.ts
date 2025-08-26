@@ -11,7 +11,7 @@ import { keyVaultService } from '../services/keyVault.js';
  * This ensures consistent OpenAI configuration across the application
  */
 export async function createWorkbookAgent() {
-  console.log('ê Initializing Workbook agent with Key Vault...');
+  console.log('ÔøΩ Initializing Workbook agent with Key Vault...');
   
   // Get secrets from Key Vault
   const openaiApiKey = await keyVaultService.getSecret('openai-api-key');
@@ -32,7 +32,7 @@ export async function createWorkbookAgent() {
   let storage, vector;
   
   if (isProduction) {
-    console.log('ò Using PostgreSQL for production memory storage');
+    console.log('ÔøΩ Using PostgreSQL for production memory storage');
     try {
       const pgConnectionString = await keyVaultService.getSecret('postgres-connection-string');
       storage = new PostgresStore({
@@ -50,7 +50,7 @@ export async function createWorkbookAgent() {
       vector = new LibSQLVector({ connectionUrl: prodFallbackDb });
     }
   } else {
-    console.log('æ Using LibSQL for local development');
+    console.log('ÔøΩ Using LibSQL for local development');
     // Determine database path based on environment
     let dbPath: string;
     
@@ -166,9 +166,14 @@ The Workbook CRM uses specific TypeId numbers to categorize resources:
 - Use geographic-analysis for location-based insights, clustering, or coverage analysis
 
 ### For Data Export & Reporting:
-- Use enhanced-export for CSV, JSON, or formatted reports
-- Support custom field selection and filtering options
-- Can save to files or return data directly
+- **ALWAYS use enhanced-export for ANY request containing: CSV, export, download, spreadsheet, file, save, list of [resources]**
+- **Trigger words**: CSV, export, download, spreadsheet, file, save, "give me", "show me", "list of", "all [clients/prospects/employees/etc]"
+- Pass the original user query in the userQuery parameter for intelligent processing  
+- **Set saveToFile: true when user requests "download", "file", "save", or "spreadsheet"** - this creates actual files
+- Examples: "CSV of active clients", "Export Danish prospects", "Download contacts with company info", "Give me all employees", "List of prospects"
+- The tool automatically detects resource types, geographic filters, and required mappings
+- Provides downloadable files via PostgreSQL storage for Teams integration
+- Always mention the file path and download availability when files are created
 
 ### For System Monitoring:
 - Use performance-monitoring to check system health and optimization opportunities
