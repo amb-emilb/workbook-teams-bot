@@ -66,6 +66,8 @@ export interface ExportContext {
   includeCompanyMapping?: boolean;
   activeOnly?: boolean;
   exportType?: string;
+  country?: string;
+  format?: string;
 }
 
 export interface EnrichedResource extends Resource {
