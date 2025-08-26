@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
 import { fileStorageService } from '../../routes/fileRoutes.js';
+import { ExportContext, EnrichedResource } from '../../types/tool-results.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -211,7 +212,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           includeCompanyMapping: finalIncludeCompany
         });
         
-        console.log(`📋 Export fields selected:`, exportFields);
+        console.log('📋 Export fields selected:', exportFields);
 
         // Calculate statistics
         const stats = {
@@ -488,7 +489,7 @@ function processUserQuery(query: string): {
   exportType?: string;
 } {
   const queryLower = query.toLowerCase();
-  const context: any = {};
+  const context: ExportContext = {};
   
   // Detect resource types
   if (queryLower.includes('client') && !queryLower.includes('prospect')) {
@@ -540,7 +541,7 @@ function processUserQuery(query: string): {
 }
 
 // Get intelligent field selection based on context
-function getIntelligentFields(context: any, options: {
+function getIntelligentFields(context: ExportContext, options: {
   includeResponsibleEmployee?: boolean;
   includeCompanyMapping?: boolean;
 }): string[] {
@@ -638,7 +639,7 @@ async function enrichResourcesWithDetails(
   
   // Enrich resources with additional data
   const enrichedResources = resources.map(resource => {
-    const enriched = { ...resource } as any;
+    const enriched: EnrichedResource = { ...resource };
     
     // Add responsible employee name
     if (options.includeResponsibleEmployee && resource.ResponsibleResourceId) {
@@ -661,6 +662,6 @@ async function enrichResourcesWithDetails(
     return enriched;
   });
   
-  console.log(`✅ Resource enrichment complete`);
+  console.log('✅ Resource enrichment complete');
   return enrichedResources;
 }

@@ -4,7 +4,7 @@ import { keyVaultService } from '../services/keyVault.js';
 import { initializeTelemetry, trackException } from '../utils/telemetry.js';
 import { TurnContext, CloudAdapter } from 'botbuilder';
 // PHASE 18: Re-enabling file routes for CSV export functionality
-import { initializeFileRoutes, handleFileDownload, handleFileList, cleanupExpiredFiles } from '../routes/fileRoutes.js';
+import { initializeFileRoutes } from '../routes/fileRoutes.js';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import * as path from 'path';

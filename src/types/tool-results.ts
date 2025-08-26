@@ -59,6 +59,22 @@ export interface ExportResult {
   message: string;
 }
 
+// Export context interfaces for enhanced export tool
+export interface ExportContext {
+  resourceTypes?: number[];
+  includeResponsibleEmployee?: boolean;
+  includeCompanyMapping?: boolean;
+  activeOnly?: boolean;
+  exportType?: string;
+}
+
+export interface EnrichedResource extends Resource {
+  ResponsibleEmployee?: string;
+  CompanyName?: string;
+  ContactType?: string;
+  [key: string]: unknown;
+}
+
 // Geographic Analysis Tool Result Types
 export interface GeographicDistribution {
   country: string;
