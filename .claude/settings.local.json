@@ -29,6 +29,7 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "zen",
-    "Context7"
+    "Context7",
+    "mastra"
   ]
 }

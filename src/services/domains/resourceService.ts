@@ -93,9 +93,10 @@ export class ResourceService extends BaseService {
 
   /**
    * Get all available resource IDs from ResourceIdsRequest
+   * @param includeInactive - Whether to include inactive resources (default: true for complete dataset)
    */
-  async getAllResourceIds(): Promise<ServiceResponse<number[]>> {
-    const cacheKey = 'resource:ids:all';
+  async getAllResourceIds(includeInactive: boolean = true): Promise<ServiceResponse<number[]>> {
+    const cacheKey = includeInactive ? 'resource:ids:all' : 'resource:ids:active';
     
     // Check cache first
     const cached = cacheManager.get<number[]>(cacheKey);
@@ -108,13 +109,14 @@ export class ResourceService extends BaseService {
     }
 
     // Use the correct payload structure from browser network tab
+    // Set HideInactive and Active based on includeInactive parameter
     const payload = {
       Filter: '',
       IsUnion: 'true',
       ExternalKeys: '',
-      HideInactive: true,
+      HideInactive: !includeInactive, // false = include inactive, true = hide inactive
       InternalCustomers: false,
-      Active: true,
+      Active: includeInactive ? null : true, // null = all, true = active only
       CustomerResponsibleResourceId: null,
       DefaultAddContacts: false,
       Favorite: null,
@@ -559,6 +561,7 @@ export class ResourceService extends BaseService {
     withEmail: number;
     withCompany: number;
     byResourceType: Record<number, number>;
+    inactiveByResourceType: Record<number, number>;
     departments: string[];
   }>> {
     const cacheKey = 'resources:stats';
@@ -571,6 +574,7 @@ export class ResourceService extends BaseService {
       withEmail: number;
       withCompany: number;
       byResourceType: Record<number, number>;
+      inactiveByResourceType: Record<number, number>;
       departments: string[];
     }>(cacheKey);
     if (cached) {
@@ -597,12 +601,19 @@ export class ResourceService extends BaseService {
     
     // Calculate stats
     const byResourceType: Record<number, number> = {};
+    const inactiveByResourceType: Record<number, number> = {};
     const departments: Set<string> = new Set();
     
     resources.forEach(resource => {
-      // Count by resource type
       const typeId = resource.TypeId || 0;
-      byResourceType[typeId] = (byResourceType[typeId] || 0) + 1;
+      
+      // Count active resources by type
+      if (resource.Active) {
+        byResourceType[typeId] = (byResourceType[typeId] || 0) + 1;
+      } else {
+        // Count inactive resources by type
+        inactiveByResourceType[typeId] = (inactiveByResourceType[typeId] || 0) + 1;
+      }
       
       // Collect unique departments/folders
       if (resource.ResourceFolder) {
@@ -610,7 +621,8 @@ export class ResourceService extends BaseService {
       }
     });
     
-    console.log('[STATS DEBUG] Resource breakdown by TypeId:', byResourceType);
+    console.log('[STATS DEBUG] Active resource breakdown by TypeId:', byResourceType);
+    console.log('[STATS DEBUG] Inactive resource breakdown by TypeId:', inactiveByResourceType);
     
     const stats = {
       total: resources.length,
@@ -619,6 +631,7 @@ export class ResourceService extends BaseService {
       withEmail: resources.filter(r => r.Email && r.Email.trim() !== '').length,
       withCompany: resources.filter(r => r.ResourceFolder && r.ResourceFolder.trim() !== '').length,
       byResourceType,
+      inactiveByResourceType,
       departments: Array.from(departments).sort()
     };
 

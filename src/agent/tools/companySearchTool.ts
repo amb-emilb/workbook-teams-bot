@@ -9,10 +9,15 @@ import { WorkbookClient } from '../../services/index.js';
 export function createCompanySearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-company-by-name',
-    description: `Find companies by name using natural language. Use this tool when users ask to:
-  - Find a specific company by name (e.g., "ADECCO", "Microsoft", "Ambition")
-  - Get company details and structure
-  - Look up client information by company name
+    description: `Find CLIENT COMPANIES and business entities by name. Use this tool when users ask to:
+  - Find CLIENT COMPANIES (not individual people/employees)
+  - List clients, prospects, or business entities
+  - Get company/client details and structure  
+  - Look up specific companies by name (e.g., "ADECCO", "Microsoft", "Ambition")
+  
+  IMPORTANT: Use this for CLIENT COMPANIES (TypeId 3), not individual people.
+  For employees or contact persons, use the people search tool.
+  Auto-detects "fresh/new/latest" keywords and purges cache for fresh data.
   
   This tool supports case-insensitive partial matching and returns full company hierarchy.`,
   
@@ -55,6 +60,16 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
         const { companyName, includeHierarchy = true, multiple = false } = context;
       
         console.log(`🔍 Searching for ${multiple ? 'companies' : 'company'}: "${companyName}"${includeHierarchy ? ' with hierarchy' : ''}`);
+        
+        // Auto-detect freshness keywords and purge cache if needed
+        const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
+        const queryText = companyName.toLowerCase();
+        const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
+        
+        if (needsFreshData) {
+          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${companyName}", purging cache...`);
+          workbookClient.resources.clearCache();
+        }
       
         if (multiple) {
         // Determine search type based on query

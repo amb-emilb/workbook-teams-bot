@@ -10,14 +10,16 @@ import { ResourceTypes } from '../../constants/resourceTypes.js';
 export function createSearchContactsTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-people',
-    description: `Search for people in the Workbook CRM system (employees, clients, contacts). Use this tool when users ask to:
-  - Find people by name, email, or company
-  - Search for specific individuals or organizations
-  - Look up customer/employee information
-  - Get people details from the database
+    description: `Search for PEOPLE/INDIVIDUALS in the Workbook CRM system (employees and contact persons). Use this tool ONLY when users ask to:
+  - Find INDIVIDUAL PEOPLE by name, email, or contact details
+  - Look up EMPLOYEE information or CONTACT PERSON details
+  - Get PERSON-specific data (not company/client data)
   
-  The search is case-insensitive and searches across name, email, initials, and company fields.
-  If no query is provided, returns all people.`,
+  IMPORTANT: Do NOT use for client companies - use company search tool instead.
+  For CLIENT COMPANIES, use the company search tool.
+  
+  Auto-detects "fresh/new/latest" keywords and purges cache for fresh data.
+  The search is case-insensitive and searches across name, email, initials, and company fields.`,
   
     inputSchema: z.object({
       query: z.string()
@@ -48,6 +50,16 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
         const { query, limit = 0 } = context;
       
         console.log(`ðŸ” Searching people with query: "${query || 'all'}", limit: ${limit}`);
+        
+        // Auto-detect freshness keywords and purge cache if needed
+        const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
+        const queryText = (query || '').toLowerCase();
+        const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
+        
+        if (needsFreshData) {
+          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", purging cache...`);
+          workbookClient.resources.clearCache();
+        }
       
         let resourcesResponse;
       
@@ -128,36 +140,57 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
     id: 'get-people-stats',
     description: `Get statistics and overview of the Workbook CRM database. Use this tool when users ask for:
   - Total number of employees, companies, or contacts
-  - Active vs inactive breakdown
+  - Active vs inactive breakdown  
   - Number of companies in the system
-  - Database overview or summary`,
+  - Database overview or summary
+  - "Fresh", "new", "latest" database statistics (auto-purges cache)
+  
+  Auto-detects freshness keywords and purges cache for up-to-date statistics.`,
   
     inputSchema: z.object({}), // No input parameters needed
   
     outputSchema: z.object({
       totalResources: z.number(),
+      activeResources: z.number(),
+      inactiveResources: z.number(),
       employees: z.number(),
       clients: z.number(),
       prospects: z.number(),
       suppliers: z.number(),
       contacts: z.number(),
+      inactiveBreakdown: z.object({
+        employees: z.number(),
+        clients: z.number(),
+        prospects: z.number(),
+        suppliers: z.number(),
+        contacts: z.number()
+      }),
       message: z.string()
     }),
   
     execute: async () => {
       try {
-        console.log('Š Getting database statistics...');
+        console.log('ï¿½ Getting database statistics...');
       
         const statsResponse = await workbookClient.resources.getStats();
       
         if (!statsResponse.success) {
           return {
             totalResources: 0,
+            activeResources: 0,
+            inactiveResources: 0,
             employees: 0,
             clients: 0,
             prospects: 0,
             suppliers: 0,
             contacts: 0,
+            inactiveBreakdown: {
+              employees: 0,
+              clients: 0,
+              prospects: 0,
+              suppliers: 0,
+              contacts: 0
+            },
             message: `Error getting statistics: ${statsResponse.error}`
           };
         }
@@ -167,21 +200,38 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         
         // Extract counts by TypeId (based on correct CRM data analysis)
         const typeBreakdown = stats.byResourceType || {};
+        const inactiveBreakdown = stats.inactiveByResourceType || {};
+        
         const employees = typeBreakdown[ResourceTypes.EMPLOYEE] || 0; // TypeId 2 = Internal employees
         const clients = typeBreakdown[ResourceTypes.CLIENT] || 0; // TypeId 3 = Actual clients/customers
         const prospects = typeBreakdown[ResourceTypes.PROSPECT] || 0; // TypeId 6 = Potential clients  
         const suppliers = typeBreakdown[ResourceTypes.SUPPLIER] || 0; // TypeId 4 = Suppliers/vendors
         const contacts = typeBreakdown[ResourceTypes.CONTACT_PERSON] || 0; // TypeId 10 = Contact persons for clients
-      
-        const message = `Database contains: ${employees} employees, ${clients} clients, ${prospects} prospects, ${suppliers} suppliers, and ${contacts} contact persons (${stats.total} total resources)${cacheStatus}.`;
+        
+        const inactiveEmployees = inactiveBreakdown[ResourceTypes.EMPLOYEE] || 0;
+        const inactiveClients = inactiveBreakdown[ResourceTypes.CLIENT] || 0;
+        const inactiveProspects = inactiveBreakdown[ResourceTypes.PROSPECT] || 0;
+        const inactiveSuppliers = inactiveBreakdown[ResourceTypes.SUPPLIER] || 0;
+        const inactiveContacts = inactiveBreakdown[ResourceTypes.CONTACT_PERSON] || 0;
+        
+        const message = `Database contains: ${employees} active employees (${inactiveEmployees} inactive), ${clients} active clients (${inactiveClients} inactive), ${prospects} active prospects (${inactiveProspects} inactive), ${suppliers} active suppliers (${inactiveSuppliers} inactive), and ${contacts} active contact persons (${inactiveContacts} inactive). Total: ${stats.active} active, ${stats.inactive} inactive (${stats.total} total)${cacheStatus}.`;
       
         return {
           totalResources: stats.total,
+          activeResources: stats.active,
+          inactiveResources: stats.inactive,
           employees: employees,
           clients: clients,
           prospects: prospects,
           suppliers: suppliers,
           contacts: contacts,
+          inactiveBreakdown: {
+            employees: inactiveEmployees,
+            clients: inactiveClients,
+            prospects: inactiveProspects,
+            suppliers: inactiveSuppliers,
+            contacts: inactiveContacts
+          },
           message: message
         };
       
@@ -190,11 +240,20 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
       
         return {
           totalResources: 0,
+          activeResources: 0,
+          inactiveResources: 0,
           employees: 0,
           clients: 0,
           prospects: 0,
           suppliers: 0,
           contacts: 0,
+          inactiveBreakdown: {
+            employees: 0,
+            clients: 0,
+            prospects: 0,
+            suppliers: 0,
+            contacts: 0
+          },
           message: `Error getting statistics: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
       }
