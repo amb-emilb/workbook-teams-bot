@@ -3,18 +3,25 @@
  */
 import * as restify from 'restify';
 import { FileStorageService } from '../services/fileStorage.js';
+import { keyVaultService } from '../services/keyVault.js';
 
 let fileStorageService: FileStorageService | null = null;
 
 export async function initializeFileRoutes() {
-  const connectionString = process.env.POSTGRES_CONNECTION_STRING;
-  
-  if (connectionString) {
-    fileStorageService = new FileStorageService(connectionString);
-    await fileStorageService.initialize();
-    console.log('� File storage service initialized');
-  } else {
-    console.log('️ No PostgreSQL connection - file storage disabled');
+  try {
+    console.log('🔑 Getting PostgreSQL connection string from Key Vault for file storage...');
+    const connectionString = await keyVaultService.getSecret('postgres-connection-string');
+    
+    if (connectionString) {
+      fileStorageService = new FileStorageService(connectionString);
+      await fileStorageService.initialize();
+      console.log('✅ File storage service initialized with Key Vault connection');
+    } else {
+      console.log('⚠️ No PostgreSQL connection string in Key Vault - file storage disabled');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize file storage service:', error);
+    console.log('⚠️ File storage disabled due to initialization failure');
   }
 }
 
