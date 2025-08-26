@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
+import { cacheManager } from '../../services/base/cache.js';
 
 /**
  * Create search people tool for the Workbook CRM system
@@ -10,13 +11,15 @@ import { ResourceTypes } from '../../constants/resourceTypes.js';
 export function createSearchContactsTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-people',
-    description: `Search for PEOPLE/INDIVIDUALS in the Workbook CRM system (employees and contact persons). Use this tool ONLY when users ask to:
-  - Find INDIVIDUAL PEOPLE by name, email, or contact details
-  - Look up EMPLOYEE information or CONTACT PERSON details
-  - Get PERSON-specific data (not company/client data)
+    description: `Search for PEOPLE/INDIVIDUALS in the Workbook CRM system (employees and contact persons). Use this tool when users ask for:
+  - "employees" or "staff" or "workers" 
+  - Individual people by name, email, or contact details
+  - Employee information or contact person details
+  - Person-specific data (names, emails, phone numbers)
+  - "Show me employees" or "list of employees"
   
-  IMPORTANT: Do NOT use for client companies - use company search tool instead.
-  For CLIENT COMPANIES, use the company search tool.
+  IMPORTANT: This is the PRIMARY tool for employee searches. Do NOT use universalSearchTool for employee queries.
+  For CLIENT COMPANIES, use the company search tool instead.
   
   Auto-detects "fresh/new/latest" keywords and purges cache for fresh data.
   The search is case-insensitive and searches across name, email, initials, and company fields.`,
@@ -49,7 +52,7 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
       try {
         const { query, limit = 0 } = context;
       
-        console.log(`🔍 Searching people with query: "${query || 'all'}", limit: ${limit}`);
+        console.log(`Searching people with query: "${query || 'all'}", limit: ${limit}`);
         
         // Auto-detect freshness keywords and purge cache if needed
         const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
@@ -57,8 +60,8 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
         const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
         
         if (needsFreshData) {
-          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", purging cache...`);
-          workbookClient.resources.clearCache();
+          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", flushing entire cache...`);
+          cacheManager.flush();
         }
       
         let resourcesResponse;
@@ -147,7 +150,11 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
   
   Auto-detects freshness keywords and purges cache for up-to-date statistics.`,
   
-    inputSchema: z.object({}), // No input parameters needed
+    inputSchema: z.object({
+      query: z.string()
+        .optional()
+        .describe('Optional context about the statistics request (used for detecting freshness keywords)')
+    }), // Accept optional query for freshness detection
   
     outputSchema: z.object({
       totalResources: z.number(),
@@ -168,9 +175,22 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
       message: z.string()
     }),
   
-    execute: async () => {
+    execute: async ({ context }) => {
       try {
-        console.log('� Getting database statistics...');
+        const { query } = context || {};
+        console.log(`Getting database statistics... ${query ? `(context: "${query}")` : ''}`);
+        
+        // Auto-detect freshness keywords and flush cache if needed
+        if (query) {
+          const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
+          const queryText = query.toLowerCase();
+          const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
+          
+          if (needsFreshData) {
+            console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", flushing entire cache...`);
+            cacheManager.flush();
+          }
+        }
       
         const statsResponse = await workbookClient.resources.getStats();
       

@@ -10,14 +10,17 @@ import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.
 export function createUniversalSearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'universal-search',
-    description: `Universal intelligent search across all Workbook CRM data. Use this tool for any search query - it will automatically determine the best search strategy:
-  - Email addresses or domains → Email search
-  - Single letters → "Starts with" search  
-  - Company keywords (Corp, Inc, Ltd) → Company search
-  - Numeric IDs → Direct ID lookup
-  - Everything else → Name search
+    description: `Universal intelligent search across all Workbook CRM data. Use this tool ONLY for complex or ambiguous queries that don't fit other specialized tools:
+  - Mixed or complex queries requiring multiple strategies
+  - Numeric IDs or specific resource lookups
+  - Ambiguous searches that need intelligent routing
   
-  This is the primary search tool that adapts to any query type.`,
+  IMPORTANT: For simple queries, use specialized tools instead:
+  - For "employees" or "staff" → Use searchContactsTool (search-people)
+  - For "clients" or "companies" → Use companySearchTool  
+  - For specific people names → Use searchContactsTool
+  
+  This tool should be a fallback, not the primary choice.`,
   
     inputSchema: z.object({
       query: z.string()
@@ -55,7 +58,7 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
       
         // Handle empty or very generic queries
         const effectiveQuery = query?.trim() || 'all';
-        console.log(`🔍 Universal search for: "${effectiveQuery}" (type: ${searchType})`);
+        console.log(`Universal search for: "${effectiveQuery}" (type: ${searchType})`);
       
         let searchStrategy = '';
         let results: Resource[] = [];

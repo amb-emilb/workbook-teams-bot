@@ -50,6 +50,11 @@ Thumbs.db
 tests/
 exports/
 
+# Deployment folders
+
+deployment/
+deployments/
+
 # LibSQL database files (all environments)
 workbook-memory*.db
 workbook-memory*.db-shm

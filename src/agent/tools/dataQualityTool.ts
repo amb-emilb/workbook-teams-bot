@@ -85,7 +85,7 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
           includeRecommendations = true
         } = context;
       
-        console.log(`📊 Starting data quality analysis (${analysisType})...`);
+        console.log(`Starting data quality analysis (${analysisType})...`);
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();

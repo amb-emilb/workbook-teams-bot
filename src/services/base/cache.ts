@@ -34,15 +34,15 @@ class CacheManager {
     // Log cache events in development
     if (process.env.NODE_ENV === 'dev') {
       this.cache.on('set', (key) => {
-        console.log(`📝 Cache SET: ${key}`);
+        console.log(`Cache SET: ${key}`);
       });
       
       this.cache.on('del', (key) => {
-        console.log(`🗑️ Cache DEL: ${key}`);
+        console.log(`Cache DEL: ${key}`);
       });
       
       this.cache.on('expired', (key) => {
-        console.log(`⏰ Cache EXPIRED: ${key}`);
+        console.log(`Cache EXPIRED: ${key}`);
       });
     }
   }
@@ -53,7 +53,7 @@ class CacheManager {
   get<T = unknown>(key: string): T | undefined {
     const value = this.cache.get<T>(key);
     if (process.env.NODE_ENV === 'dev' && value !== undefined) {
-      console.log(`💾 Cache HIT: ${key}`);
+      console.log(`Cache HIT: ${key}`);
     }
     return value;
   }
@@ -106,7 +106,7 @@ class CacheManager {
    */
   flush(): void {
     this.cache.flushAll();
-    console.log('� Cache flushed');
+    console.log('Cache flushed');
   }
 
   /**

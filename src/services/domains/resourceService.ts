@@ -801,6 +801,6 @@ export class ResourceService extends BaseService {
   clearCache(): void {
     cacheManager.delStartWith('resource');
     cacheManager.delStartWith('contact');
-    console.log('� Resource and contact cache cleared');
+    console.log('Resource and contact cache cleared');
   }
 }

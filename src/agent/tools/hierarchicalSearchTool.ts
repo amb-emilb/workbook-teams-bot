@@ -50,7 +50,7 @@ export function createHierarchicalSearchTool(workbookClient: WorkbookClient) {
       try {
         const { resourceId, includeContacts = true, limit = 0 } = context;
       
-        console.log(`🔍 Fetching hierarchical data${resourceId ? ` for resource ${resourceId}` : ''}`);
+        console.log(`Fetching hierarchical data${resourceId ? ` for resource ${resourceId}` : ''}`);
       
         // Get all resources first (use complete dataset)
         const resourcesResponse = await workbookClient.resources.getAllResourcesComplete();

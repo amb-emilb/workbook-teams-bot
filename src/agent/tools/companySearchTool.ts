@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
+import { cacheManager } from '../../services/base/cache.js';
 
 /**
  * Create natural language company search tool using ResourceService
@@ -59,7 +60,7 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
       try {
         const { companyName, includeHierarchy = true, multiple = false } = context;
       
-        console.log(`🔍 Searching for ${multiple ? 'companies' : 'company'}: "${companyName}"${includeHierarchy ? ' with hierarchy' : ''}`);
+        console.log(`Searching for ${multiple ? 'companies' : 'company'}: "${companyName}"${includeHierarchy ? ' with hierarchy' : ''}`);
         
         // Auto-detect freshness keywords and purge cache if needed
         const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
@@ -67,8 +68,8 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
         const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
         
         if (needsFreshData) {
-          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${companyName}", purging cache...`);
-          workbookClient.resources.clearCache();
+          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${companyName}", flushing entire cache...`);
+          cacheManager.flush();
         }
       
         if (multiple) {
@@ -76,7 +77,7 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
           let companiesResponse;
           // If searching for single letters, assume "starts with" intent
           if (companyName.length === 1 && /^[A-Z]$/i.test(companyName)) {
-            console.log(`🎯 Detected single letter search - using "starts with" for "${companyName}"`);
+            console.log(`Detected single letter search - using "starts with" for "${companyName}"`);
             companiesResponse = await workbookClient.resources.findCompaniesStartingWith(companyName);
           } else if (companyName.toLowerCase().includes('starting with') || companyName.toLowerCase().includes('begins with')) {
           // Extract the prefix from queries like "starting with A"
