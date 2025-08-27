@@ -22,8 +22,8 @@ import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
 
-// Re-enabling Adaptive Cards functionality for file downloads
-import { ResponseParser, createDownloadCard, createCompanyResultsCard, createContactResultsCard, createDataQualityCard } from './adaptiveCards.js';
+// TEMPORARILY DISABLED: Adaptive Cards functionality to debug startup issue
+// import { ResponseParser, createDownloadCard, createCompanyResultsCard, createContactResultsCard, createDataQualityCard } from './adaptiveCards.js';
 
 import dotenv from 'dotenv';
 
@@ -143,56 +143,12 @@ const processId = process.pid;
 console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, ModuleID: ${moduleId}, ProcessStart: ${processStartTime.toISOString()}`);
 
 /**
- * Enhanced response with Adaptive Cards for better UX
- * Detects structured data and converts to rich cards when appropriate
+ * TEMPORARILY DISABLED: Enhanced response with Adaptive Cards
+ * Reverting to simple text responses to debug startup issue
  */
 async function enhanceResponseWithAdaptiveCards(responseText: string, context: TurnContext): Promise<void> {
-  try {
-    // Check for download links first (highest priority)
-    const downloadInfo = ResponseParser.parseDownloadLink(responseText);
-    if (downloadInfo) {
-      console.log('[ADAPTIVE CARDS] Creating download card for file:', downloadInfo.fileName);
-      const downloadCard = createDownloadCard(downloadInfo);
-      await context.sendActivity({ attachments: [downloadCard] });
-      return;
-    }
-    
-    // Check for company results
-    const companies = ResponseParser.parseCompanyResults(responseText);
-    if (companies) {
-      console.log('[ADAPTIVE CARDS] Creating company results card');
-      const companyCard = createCompanyResultsCard(companies);
-      await context.sendActivity({ attachments: [companyCard] });
-      return;
-    }
-    
-    // Check for contact results
-    const contacts = ResponseParser.parseContactResults(responseText);
-    if (contacts) {
-      console.log('[ADAPTIVE CARDS] Creating contact results card');
-      const contactCard = createContactResultsCard(contacts);
-      await context.sendActivity({ attachments: [contactCard] });
-      return;
-    }
-    
-    // Check for data quality metrics
-    const dataQuality = ResponseParser.parseDataQuality(responseText);
-    if (dataQuality) {
-      console.log('[ADAPTIVE CARDS] Creating data quality card');
-      const qualityCard = createDataQualityCard(dataQuality);
-      await context.sendActivity({ attachments: [qualityCard] });
-      return;
-    }
-    
-    // Fall back to plain text if no structured data detected
-    console.log('[ADAPTIVE CARDS] No structured data detected, sending plain text');
-    await context.sendActivity(responseText);
-    
-  } catch (error) {
-    console.error('[ADAPTIVE CARDS] Error processing response:', error);
-    // Fallback to plain text on error
-    await context.sendActivity(responseText);
-  }
+  console.log('[ADAPTIVE CARDS] DISABLED - Sending plain text response to debug startup issue');
+  await context.sendActivity(responseText);
 }
 
 /**
