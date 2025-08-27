@@ -3,25 +3,62 @@
  */
 import * as restify from 'restify';
 import { FileStorageService } from '../services/fileStorage.js';
+import { keyVaultService } from '../services/keyVault.js';
 
 let fileStorageService: FileStorageService | null = null;
 
 export async function initializeFileRoutes() {
-  console.log('[FILE STORAGE] Initializing file storage (using environment variable for now)...');
+  console.log('[FILE STORAGE] Initializing file storage with Key Vault PostgreSQL connection...');
   
-  const connectionString = process.env.POSTGRES_CONNECTION_STRING;
-  
-  if (connectionString) {
-    try {
+  try {
+    // First, try Key Vault connection string
+    console.log('[FILE STORAGE] Attempting to retrieve PostgreSQL connection from Key Vault...');
+    const startTime = Date.now();
+    
+    const connectionString = await Promise.race([
+      keyVaultService.getSecret('postgres-connection-string'),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Key Vault timeout after 15 seconds')), 15000)
+      )
+    ]);
+    
+    const retrievalTime = Date.now() - startTime;
+    console.log(`[FILE STORAGE] Successfully retrieved PostgreSQL connection from Key Vault in ${retrievalTime}ms`);
+    
+    if (connectionString) {
+      console.log('[FILE STORAGE] Initializing FileStorageService with Key Vault connection...');
+      const initStartTime = Date.now();
+      
       fileStorageService = new FileStorageService(connectionString);
       await fileStorageService.initialize();
-      console.log('[FILE STORAGE] File storage service initialized with environment variable');
-    } catch (error) {
-      console.error('[FILE STORAGE] Failed to initialize file storage service:', error);
-      console.log('[FILE STORAGE] File storage disabled due to initialization failure');
+      
+      const initTime = Date.now() - initStartTime;
+      console.log(`[FILE STORAGE] SUCCESS: PostgreSQL file storage initialized with Key Vault connection in ${initTime}ms`);
+    } else {
+      console.warn('[FILE STORAGE] Key Vault returned empty PostgreSQL connection string');
+      console.log('[FILE STORAGE] File storage disabled - no connection string available');
     }
-  } else {
-    console.log('[FILE STORAGE] No PostgreSQL connection string in environment - file storage disabled');
+    
+  } catch (error) {
+    console.error('[FILE STORAGE] ERROR: Failed to get PostgreSQL connection from Key Vault:', error);
+    console.log('[FILE STORAGE] Falling back to environment variable...');
+    
+    // Fallback to environment variable
+    const envConnectionString = process.env.POSTGRES_CONNECTION_STRING;
+    if (envConnectionString) {
+      try {
+        console.log('[FILE STORAGE] Attempting fallback initialization with environment variable...');
+        fileStorageService = new FileStorageService(envConnectionString);
+        await fileStorageService.initialize();
+        console.log('[FILE STORAGE] FALLBACK SUCCESS: File storage initialized with environment variable');
+      } catch (fallbackError) {
+        console.error('[FILE STORAGE] FALLBACK FAILED: Environment variable initialization also failed:', fallbackError);
+        console.log('[FILE STORAGE] File storage completely disabled - both Key Vault and environment variable failed');
+      }
+    } else {
+      console.warn('[FILE STORAGE] No fallback environment variable available (POSTGRES_CONNECTION_STRING)');
+      console.log('[FILE STORAGE] File storage disabled - no connection options available');
+    }
   }
 }
 
