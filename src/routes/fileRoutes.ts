@@ -10,14 +10,28 @@ let fileStorageService: FileStorageService | null = null;
 export async function initializeFileRoutes() {
   try {
     console.log('[FILE STORAGE] Getting PostgreSQL connection string from Key Vault for file storage...');
-    const connectionString = await keyVaultService.getSecret('postgres-connection-string');
+    
+    // Add timeout to prevent startup hanging
+    const timeoutPromise = new Promise<string | null>((_, reject) => {
+      setTimeout(() => reject(new Error('Key Vault timeout after 10 seconds')), 10000);
+    });
+    
+    const connectionPromise = keyVaultService.getSecret('postgres-connection-string');
+    
+    let connectionString: string | null = null;
+    try {
+      connectionString = await Promise.race([connectionPromise, timeoutPromise]);
+    } catch (keyVaultError) {
+      console.warn('[FILE STORAGE] Key Vault failed, trying environment variable fallback:', keyVaultError);
+      connectionString = process.env.POSTGRES_CONNECTION_STRING || null;
+    }
     
     if (connectionString) {
       fileStorageService = new FileStorageService(connectionString);
       await fileStorageService.initialize();
-      console.log('[FILE STORAGE] File storage service initialized with Key Vault connection');
+      console.log('[FILE STORAGE] File storage service initialized successfully');
     } else {
-      console.log('[FILE STORAGE] No PostgreSQL connection string in Key Vault - file storage disabled');
+      console.log('[FILE STORAGE] No PostgreSQL connection available - file storage disabled');
     }
   } catch (error) {
     console.error('[FILE STORAGE] Failed to initialize file storage service:', error);
