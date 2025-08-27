@@ -298,30 +298,26 @@ async function startServer() {
     // Re-enable file download endpoints for CSV export functionality
     console.log('[SERVER INIT] Initializing file download endpoints');
     
-    server.get('/api/files/:fileId', async (req, res, next) => {
+    server.get('/api/files/:fileId', async (req, res) => {
       console.log('[FILE DOWNLOAD] Request for file:', req.params.fileId);
       await handleFileDownload(req, res);
-      return next();
     });
 
-    server.get('/api/files', async (req, res, next) => {
+    server.get('/api/files', async (req, res) => {
       console.log('[FILE LIST] Request for file list');
       await handleFileList(req, res);
-      return next();
     });
 
     // Re-enable cleanup endpoint
-    server.post('/api/maintenance/cleanup', async (req, res, next) => {
+    server.post('/api/maintenance/cleanup', async (req, res) => {
       console.log('[FILE CLEANUP] Manual cleanup requested');
       try {
         const deletedCount = await cleanupExpiredFiles();
         res.json({ success: true, deletedFiles: deletedCount });
-        return next();
       } catch (error) {
         console.error('[FILE CLEANUP] Error:', error);
         res.status(500);
         res.json({ error: 'Cleanup failed' });
-        return next();
       }
     });
     // server.post('/api/maintenance/cleanup', async (req, res, next) => {
