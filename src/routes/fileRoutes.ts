@@ -3,39 +3,25 @@
  */
 import * as restify from 'restify';
 import { FileStorageService } from '../services/fileStorage.js';
-import { keyVaultService } from '../services/keyVault.js';
 
 let fileStorageService: FileStorageService | null = null;
 
 export async function initializeFileRoutes() {
-  try {
-    console.log('[FILE STORAGE] Getting PostgreSQL connection string from Key Vault for file storage...');
-    
-    // Add timeout to prevent startup hanging
-    const timeoutPromise = new Promise<string | null>((_, reject) => {
-      setTimeout(() => reject(new Error('Key Vault timeout after 10 seconds')), 10000);
-    });
-    
-    const connectionPromise = keyVaultService.getSecret('postgres-connection-string');
-    
-    let connectionString: string | null = null;
+  console.log('[FILE STORAGE] Initializing file storage (using environment variable for now)...');
+  
+  const connectionString = process.env.POSTGRES_CONNECTION_STRING;
+  
+  if (connectionString) {
     try {
-      connectionString = await Promise.race([connectionPromise, timeoutPromise]);
-    } catch (keyVaultError) {
-      console.warn('[FILE STORAGE] Key Vault failed, trying environment variable fallback:', keyVaultError);
-      connectionString = process.env.POSTGRES_CONNECTION_STRING || null;
-    }
-    
-    if (connectionString) {
       fileStorageService = new FileStorageService(connectionString);
       await fileStorageService.initialize();
-      console.log('[FILE STORAGE] File storage service initialized successfully');
-    } else {
-      console.log('[FILE STORAGE] No PostgreSQL connection available - file storage disabled');
+      console.log('[FILE STORAGE] File storage service initialized with environment variable');
+    } catch (error) {
+      console.error('[FILE STORAGE] Failed to initialize file storage service:', error);
+      console.log('[FILE STORAGE] File storage disabled due to initialization failure');
     }
-  } catch (error) {
-    console.error('[FILE STORAGE] Failed to initialize file storage service:', error);
-    console.log('[FILE STORAGE] File storage disabled due to initialization failure');
+  } else {
+    console.log('[FILE STORAGE] No PostgreSQL connection string in environment - file storage disabled');
   }
 }
 
