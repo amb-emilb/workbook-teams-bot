@@ -24,10 +24,10 @@ class KeyVaultService {
       });
       
       this.client = new SecretClient(keyVaultUrl, credential);
-      console.log('� PRODUCTION: Using Key Vault with User-Assigned MSI');
+      console.log('PRODUCTION: Using Key Vault with User-Assigned MSI');
     } else {
       // LOCAL DEVELOPMENT: Environment variables only
-      console.log('� LOCAL DEVELOPMENT: Using .env environment variables');
+      console.log('LOCAL DEVELOPMENT: Using .env environment variables');
     }
   }
 
@@ -56,17 +56,17 @@ class KeyVaultService {
       }
 
       try {
-        console.log(`🔐 PRODUCTION: Retrieving secret from Key Vault: ${secretName}`);
+        console.log(`PRODUCTION: Retrieving secret from Key Vault: ${secretName}`);
         const secret = await this.client.getSecret(secretName);
         
         if (!secret.value) {
           throw new Error(`Secret ${secretName} has no value`);
         }
         
-        console.log(`✅ Successfully retrieved secret from Key Vault: ${secretName}`);
+        console.log(`Successfully retrieved secret from Key Vault: ${secretName}`);
         return secret.value;
       } catch (error) {
-        console.error(`❌ PRODUCTION: Failed to retrieve secret ${secretName} from Key Vault:`, error);
+        console.error(`PRODUCTION: Failed to retrieve secret ${secretName} from Key Vault:`, error);
         throw new Error(`Failed to retrieve secret ${secretName} from Key Vault: ${error}`);
       }
     } else {
@@ -81,7 +81,7 @@ class KeyVaultService {
         throw new Error(`Environment variable ${envVar} not set for secret: ${secretName}`);
       }
 
-      console.log(`🏠 LOCAL DEV: Using environment variable: ${secretName} (from ${envVar})`);
+      console.log(`LOCAL DEV: Using environment variable: ${secretName} (from ${envVar})`);
       return envValue;
     }
   }
