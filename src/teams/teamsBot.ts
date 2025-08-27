@@ -22,7 +22,7 @@ import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
 
-import { ResponseParser, createDownloadCard, createCompanyResultsCard, createContactResultsCard, createDataQualityCard } from './adaptiveCards.js';
+import { ResponseParser, createDownloadCard, createCompanyResultsCard, createContactResultsCard } from './adaptiveCards.js';
 
 import dotenv from 'dotenv';
 
@@ -149,25 +149,22 @@ async function enhanceResponseWithAdaptiveCards(responseText: string, context: T
   console.log('[ADAPTIVE CARDS] Processing response for enhanced UX...');
   
   try {
-    const parser = new ResponseParser();
-    const parsedResponse = parser.parseResponse(responseText);
+    // Parse download links from response
+    const downloadResult = ResponseParser.parseDownloadLink(responseText);
+    const companies = ResponseParser.parseCompanyResults(responseText);
+    const contacts = ResponseParser.parseContactResults(responseText);
     
-    if (parsedResponse.downloadUrl) {
-      console.log('[ADAPTIVE CARDS] Creating download card for:', parsedResponse.downloadUrl);
-      const downloadCard = createDownloadCard(parsedResponse.downloadUrl, parsedResponse.description || 'Download File');
+    if (downloadResult) {
+      console.log('[ADAPTIVE CARDS] Creating download card for:', downloadResult.downloadUrl);
+      const downloadCard = createDownloadCard(downloadResult);
       await context.sendActivity({ attachments: [downloadCard] });
-      
-      // Send any additional text that's not part of the download
-      if (parsedResponse.additionalText) {
-        await context.sendActivity(parsedResponse.additionalText);
-      }
-    } else if (parsedResponse.companies && parsedResponse.companies.length > 0) {
-      console.log('[ADAPTIVE CARDS] Creating company results card for', parsedResponse.companies.length, 'companies');
-      const companyCard = createCompanyResultsCard(parsedResponse.companies);
+    } else if (companies && companies.length > 0) {
+      console.log('[ADAPTIVE CARDS] Creating company results card for', companies.length, 'companies');
+      const companyCard = createCompanyResultsCard(companies);
       await context.sendActivity({ attachments: [companyCard] });
-    } else if (parsedResponse.contacts && parsedResponse.contacts.length > 0) {
-      console.log('[ADAPTIVE CARDS] Creating contact results card for', parsedResponse.contacts.length, 'contacts');
-      const contactCard = createContactResultsCard(parsedResponse.contacts);
+    } else if (contacts && contacts.length > 0) {
+      console.log('[ADAPTIVE CARDS] Creating contact results card for', contacts.length, 'contacts');
+      const contactCard = createContactResultsCard(contacts);
       await context.sendActivity({ attachments: [contactCard] });
     } else {
       // Fallback to plain text for responses that don't match patterns
@@ -372,7 +369,7 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
   console.log('[ADAPTIVE CARDS] Action handlers enabled for enhanced UX');
   
   // Handle download button clicks
-  app.adaptiveCards.actionSubmit('download-file', async (context: TurnContext, state: WorkbookTurnState, data: any) => {
+  app.adaptiveCards.actionSubmit('download-file', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
     console.log('[ADAPTIVE CARDS] Download button clicked:', data);
     await context.sendActivity('Your download should start automatically. If not, please click the link again.');
   });
