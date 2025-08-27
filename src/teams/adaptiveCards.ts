@@ -324,6 +324,20 @@ export function createDataQualityCard(metrics: DataQualityMetrics): Attachment {
  * Create an Adaptive Card for download links with file information
  */
 export function createDownloadCard(download: DownloadResult): Attachment {
+  // Determine file type icon based on filename
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.toLowerCase().split('.').pop();
+    switch (ext) {
+    case 'csv':
+      return 'https://cdn-icons-png.flaticon.com/128/337/337932.png'; // CSV icon
+    case 'xlsx':
+    case 'xls':
+      return 'https://cdn-icons-png.flaticon.com/128/337/337958.png'; // Excel icon
+    default:
+      return 'https://cdn-icons-png.flaticon.com/128/337/337946.png'; // Generic document icon
+    }
+  };
+
   const card = {
     type: 'AdaptiveCard',
     $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
@@ -349,7 +363,7 @@ export function createDownloadCard(download: DownloadResult): Attachment {
                 items: [
                   {
                     type: 'Image',
-                    url: 'https://cdn-icons-png.flaticon.com/128/337/337946.png',
+                    url: getFileIcon(download.fileName),
                     size: 'Medium'
                   }
                 ]
@@ -517,7 +531,7 @@ export class ResponseParser {
   }
 
   static parseDownloadLink(text: string): DownloadResult | null {
-    const urlMatch = text.match(/(https?:\/\/[^\s]+(?:\.csv|\/files\/[^\s]+))/i);
+    const urlMatch = text.match(/(https?:\/\/[^\s)]+(?:\.csv|\/files\/[^\s)]+))/i);
     const fileNameMatch = text.match(/(?:file|export):\s*([^\n]+\.csv)/i) || 
                          text.match(/([^/]+\.csv)/i);
     const recordMatch = text.match(/(\d+)\s*(?:records|rows|items)/i);
