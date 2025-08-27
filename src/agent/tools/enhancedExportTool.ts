@@ -184,13 +184,14 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           resources = resources.filter(r => r.Active);
         }
         
-        // Apply geographic filtering
+        // Apply geographic filtering using country codes
         if (finalCountry) {
-          const countryLower = finalCountry.toLowerCase();
+          const countryCode = getCountryCode(finalCountry);
           resources = resources.filter(r => 
-            r.Country && r.Country.toLowerCase().includes(countryLower)
+            r.Country && (countryCode ? r.Country === countryCode : 
+              r.Country.toLowerCase().includes(finalCountry.toLowerCase()))
           );
-          console.log(`🌍 Geographic filter applied: ${finalCountry}, ${resources.length} resources remain`);
+          console.log(`Geographic filter applied: ${finalCountry} (${countryCode || 'text match'}), ${resources.length} resources remain`);
         }
         
         // Enhanced data mapping
@@ -664,4 +665,69 @@ async function enrichResourcesWithDetails(
   
   console.log('Resource enrichment complete');
   return enrichedResources;
+}
+
+/**
+ * Map common country names to their ISO2 codes
+ * Based on Workbook API's Country field format
+ */
+function getCountryCode(countryName: string): string | null {
+  const countryMap: Record<string, string> = {
+    // Nordic countries
+    'denmark': 'DK',
+    'danmark': 'DK',
+    'danish': 'DK',
+    'norway': 'NO',
+    'norge': 'NO',
+    'norwegian': 'NO',
+    'sweden': 'SE', 
+    'sverige': 'SE',
+    'swedish': 'SE',
+    'finland': 'FI',
+    'suomi': 'FI',
+    'finnish': 'FI',
+    'iceland': 'IS',
+    'ísland': 'IS',
+    'icelandic': 'IS',
+    
+    // Major European countries
+    'germany': 'DE',
+    'deutschland': 'DE',
+    'german': 'DE',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'britain': 'GB',
+    'british': 'GB',
+    'england': 'GB',
+    'france': 'FR',
+    'french': 'FR',
+    'netherlands': 'NL',
+    'holland': 'NL',
+    'dutch': 'NL',
+    'belgium': 'BE',
+    'belgian': 'BE',
+    'spain': 'ES',
+    'spanish': 'ES',
+    'italy': 'IT',
+    'italian': 'IT',
+    'austria': 'AT',
+    'austrian': 'AT',
+    'switzerland': 'CH',
+    'swiss': 'CH',
+    
+    // Others
+    'czech republic': 'CZ',
+    'czech': 'CZ',
+    'poland': 'PL',
+    'polish': 'PL',
+    'usa': 'US',
+    'united states': 'US',
+    'america': 'US',
+    'american': 'US',
+    'canada': 'CA',
+    'canadian': 'CA'
+  };
+  
+  const normalized = countryName.toLowerCase().trim();
+  return countryMap[normalized] || null;
 }

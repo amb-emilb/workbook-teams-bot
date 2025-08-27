@@ -374,6 +374,57 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
     await context.sendActivity('Your download should start automatically. If not, please click the link again.');
   });
 
+  // Handle "View All Contacts" button
+  app.adaptiveCards.actionSubmit('view_all_contacts', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] View all contacts clicked:', data);
+    await context.sendActivity('Generating CSV export of all contacts...');
+    
+    // Re-run the last query but request CSV export specifically
+    const lastQuery = state.workbookContext?.lastQuery;
+    if (lastQuery) {
+      const csvQuery = `Export all results from this search to CSV: ${lastQuery}`;
+      const response = await executeMastraAgent(csvQuery, state, context);
+      await enhanceResponseWithAdaptiveCards(response, context);
+    } else {
+      await context.sendActivity('Please repeat your search to export all contacts.');
+    }
+  });
+
+  // Handle "View All Companies" button  
+  app.adaptiveCards.actionSubmit('view_all_companies', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] View all companies clicked:', data);
+    await context.sendActivity('Generating CSV export of all companies...');
+    
+    // Re-run the last query but request CSV export specifically
+    const lastQuery = state.workbookContext?.lastQuery;
+    if (lastQuery) {
+      const csvQuery = `Export all results from this search to CSV: ${lastQuery}`;
+      const response = await executeMastraAgent(csvQuery, state, context);
+      await enhanceResponseWithAdaptiveCards(response, context);
+    } else {
+      await context.sendActivity('Please repeat your search to export all companies.');
+    }
+  });
+
+  // Handle company details button
+  app.adaptiveCards.actionSubmit('company_details', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] Company details clicked:', data);
+    const companyName = (data as { companyName?: string })?.companyName;
+    if (companyName) {
+      await context.sendActivity(`Getting details for ${companyName}...`);
+      const response = await executeMastraAgent(`Show me detailed information about the company "${companyName}"`, state, context);
+      await context.sendActivity(response);
+    } else {
+      await context.sendActivity('Company information not available.');
+    }
+  });
+
+  // Handle export options button
+  app.adaptiveCards.actionSubmit('export_options', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] Export options clicked:', data);
+    await context.sendActivity('What format would you like? You can ask for CSV, Excel, or other formats.');
+  });
+
   // Add logging for debugging - using conversationUpdate as a generic activity handler
   app.conversationUpdate('membersAdded', async (context: TurnContext) => {
     console.log('Processing activity', { 

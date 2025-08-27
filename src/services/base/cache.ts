@@ -55,6 +55,21 @@ class CacheManager {
     if (process.env.NODE_ENV === 'dev' && value !== undefined) {
       console.log(`Cache HIT: ${key}`);
     }
+    
+    // Track cache hit/miss for testing purposes
+    if (process.env.NODE_ENV === 'dev' || process.env.NODE_ENV === 'test') {
+      try {
+        // Use globalThis to store cache tracking function if available
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const trackCacheEvent = (globalThis as any).trackCacheEvent;
+        if (trackCacheEvent) {
+          trackCacheEvent(key, value !== undefined, 'get');
+        }
+      } catch {
+        // Silently ignore errors
+      }
+    }
+    
     return value;
   }
 

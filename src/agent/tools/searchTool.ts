@@ -13,12 +13,13 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
     id: 'search-people',
     description: `Search for PEOPLE/INDIVIDUALS in the Workbook CRM system (employees and contact persons). Use this tool when users ask for:
   - "employees" or "staff" or "workers" 
+  - "contact persons" or "contacts" (people working at client companies)
   - Individual people by name, email, or contact details
   - Employee information or contact person details
   - Person-specific data (names, emails, phone numbers)
-  - "Show me employees" or "list of employees"
+  - "Show me employees" or "list of contact persons"
   
-  IMPORTANT: This is the PRIMARY tool for employee searches. Do NOT use universalSearchTool for employee queries.
+  IMPORTANT: This tool searches both EMPLOYEES (Type 2) and CONTACT PERSONS (Type 10).
   For CLIENT COMPANIES, use the company search tool instead.
   
   Auto-detects "fresh/new/latest" keywords and purges cache for fresh data.
@@ -77,6 +78,12 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
                  query.toLowerCase().includes('inc') || query.toLowerCase().includes('ltd')) {
             resourcesResponse = await workbookClient.resources.searchByCompany(query);
           }
+          // Handle "all employees", "all staff", "employees", "staff" queries
+          else if (query.toLowerCase().includes('employee') || query.toLowerCase().includes('staff') || 
+                  query.toLowerCase().includes('all') || query.toLowerCase() === 'employees' ||
+                  query.toLowerCase() === 'staff') {
+            resourcesResponse = await workbookClient.resources.getAllResourcesComplete();
+          }
           // For name/initials searches
           else {
             resourcesResponse = await workbookClient.resources.searchByName(query);
@@ -96,9 +103,14 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
         }
 
         const resources = resourcesResponse.data || [];
+        
+        // Filter for only people types (employees and contact persons)
+        const peopleResources = resources.filter((resource: Resource) => 
+          resource.TypeId === ResourceTypes.EMPLOYEE || resource.TypeId === ResourceTypes.CONTACT_PERSON
+        );
       
         // Apply limit and format people
-        const limitedResources = limit > 0 ? resources.slice(0, limit) : resources;
+        const limitedResources = limit > 0 ? peopleResources.slice(0, limit) : peopleResources;
         const formattedPeople = limitedResources.map((resource: Resource) => ({
           id: resource.Id,
           name: resource.Name || 'Unknown',
@@ -115,7 +127,7 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
       
         return {
           people: formattedPeople,
-          totalFound: formattedPeople.length,
+          totalFound: peopleResources.length, // Total people found before limit
           query: query || '',
           message: message
         };

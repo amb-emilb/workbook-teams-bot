@@ -18,6 +18,12 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   - Optimize territory assignments and travel planning
   - Generate location-based insights and recommendations
   
+  IMPORTANT: Danish city data uses Danish names (e.g., "København" for Copenhagen, "Århus" for Aarhus).
+  When searching for specific cities, use both English and Danish variations:
+  - Copenhagen: also search for "København", "Kbh"
+  - Aarhus: also search for "Århus"  
+  - Other major Danish cities use local Danish spellings
+  
   Provides comprehensive geographic intelligence for business optimization.`,
   
     inputSchema: z.object({
@@ -38,7 +44,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
         .describe('Limit analysis to specific countries'),
       cities: z.array(z.string())
         .optional()
-        .describe('Limit analysis to specific cities'),
+        .describe('Limit analysis to specific cities. IMPORTANT: Include both English and Danish names (e.g., for Copenhagen use ["Copenhagen", "København", "Kbh"])'),
       regions: z.array(z.string())
         .optional()
         .describe('Custom regions to analyze'),
@@ -164,7 +170,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       const startTime = Date.now();
-      console.log('� Geographic Analysis Tool - Starting analysis...', context);
+      console.log('� Geographic Analysis Tool - Starting analysis...', context);
     
       try {
         // Context is already validated by the tool framework, no need for manual validation
@@ -191,7 +197,7 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
         if (active !== undefined) {searchParams.Active = active;}
 
         // Get data from WorkbookClient
-        console.log('� Fetching resources for geographic analysis...', searchParams);
+        console.log('� Fetching resources for geographic analysis...', searchParams);
         const response = await workbookClient.resources.search(searchParams);
       
         if (!response.success || !response.data) {
@@ -208,18 +214,25 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
           resources = resources.filter(r => r.TypeId !== 10);
         }
       
-        // Filter by geographic scope
+        // Filter by geographic scope using country codes
         if (countries && countries.length > 0) {
           resources = resources.filter(r => 
-            r.Country && countries.some((country: string) => 
-            r.Country!.toLowerCase().includes(country.toLowerCase())
-            )
+            r.Country && countries.some((country: string) => {
+              // Map country names to codes for filtering
+              const countryCode = getCountryCode(country);
+              return countryCode ? r.Country === countryCode : 
+                     r.Country!.toLowerCase().includes(country.toLowerCase());
+            })
           );
         }
       
         if (cities && cities.length > 0) {
+          // Automatically expand city names to include Danish variations
+          const expandedCities = expandCityNames(cities);
+          console.log(`City search expanded: ${cities.join(', ')} → ${expandedCities.join(', ')}`);
+          
           resources = resources.filter(r => 
-            r.City && cities.some((city: string) => 
+            r.City && expandedCities.some((city: string) => 
             r.City!.toLowerCase().includes(city.toLowerCase())
             )
           );
@@ -652,4 +665,107 @@ function generateSimpleMapVisualization(distribution: LocationDistribution): str
   });
   
   return map;
+}
+
+/**
+ * Map common country names to their ISO2 codes
+ * Based on Workbook API's Country field format
+ */
+function getCountryCode(countryName: string): string | null {
+  const countryMap: Record<string, string> = {
+    // Nordic countries
+    'denmark': 'DK',
+    'danmark': 'DK',
+    'danish': 'DK',
+    'norway': 'NO',
+    'norge': 'NO',
+    'norwegian': 'NO',
+    'sweden': 'SE', 
+    'sverige': 'SE',
+    'swedish': 'SE',
+    'finland': 'FI',
+    'suomi': 'FI',
+    'finnish': 'FI',
+    'iceland': 'IS',
+    'ísland': 'IS',
+    'icelandic': 'IS',
+    
+    // Major European countries
+    'germany': 'DE',
+    'deutschland': 'DE',
+    'german': 'DE',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'britain': 'GB',
+    'british': 'GB',
+    'england': 'GB',
+    'france': 'FR',
+    'french': 'FR',
+    'netherlands': 'NL',
+    'holland': 'NL',
+    'dutch': 'NL',
+    'belgium': 'BE',
+    'belgian': 'BE',
+    'spain': 'ES',
+    'spanish': 'ES',
+    'italy': 'IT',
+    'italian': 'IT',
+    'austria': 'AT',
+    'austrian': 'AT',
+    'switzerland': 'CH',
+    'swiss': 'CH',
+    
+    // Others
+    'czech republic': 'CZ',
+    'czech': 'CZ',
+    'poland': 'PL',
+    'polish': 'PL',
+    'usa': 'US',
+    'united states': 'US',
+    'america': 'US',
+    'american': 'US',
+    'canada': 'CA',
+    'canadian': 'CA'
+  };
+  
+  const normalized = countryName.toLowerCase().trim();
+  return countryMap[normalized] || null;
+}
+
+/**
+ * Automatically expand city names to include Danish/English variations
+ * This ensures consistent results regardless of which language the user uses
+ */
+function expandCityNames(cities: string[]): string[] {
+  const expandedCities = [...cities]; // Start with original cities
+  
+  cities.forEach(city => {
+    const normalized = city.toLowerCase().trim();
+    
+    // Copenhagen variations
+    if (normalized === 'copenhagen') {
+      expandedCities.push('københavn', 'kbh', 'københavn k', 'københavn s', 'københavn n', 'københavn ø', 'københavn v');
+    } else if (normalized === 'københavn' || normalized === 'kbh') {
+      expandedCities.push('copenhagen', 'københavn k', 'københavn s', 'københavn n', 'københavn ø', 'københavn v');
+    }
+    
+    // Aarhus variations  
+    else if (normalized === 'aarhus') {
+      expandedCities.push('århus');
+    } else if (normalized === 'århus') {
+      expandedCities.push('aarhus');
+    }
+    
+    // Aalborg variations
+    else if (normalized === 'aalborg') {
+      expandedCities.push('ålborg');
+    } else if (normalized === 'ålborg') {
+      expandedCities.push('aalborg');
+    }
+    
+    // Other common variations can be added here as needed
+  });
+  
+  // Remove duplicates and return
+  return [...new Set(expandedCities)];
 }

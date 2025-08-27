@@ -104,6 +104,18 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
                 results = response.data;
               }
             }
+            // Employee/Staff indicators  
+            else if (lowerQuery.includes('employee') || lowerQuery.includes('staff') || 
+                    lowerQuery.includes('all employees') || lowerQuery.includes('all staff')) {
+              searchStrategy = 'All employees search';
+              const response = await workbookClient.resources.search({
+                ResourceType: [ResourceTypes.EMPLOYEE],
+                Active: !includeInactive ? true : undefined
+              });
+              if (response.success && response.data) {
+                results = response.data;
+              }
+            }
             // Company indicators
             else if (lowerQuery.includes('corp') || lowerQuery.includes('inc') || 
                  lowerQuery.includes('ltd') || lowerQuery.includes('company') ||
@@ -152,10 +164,23 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
         }
         else if (searchType === 'person') {
           searchStrategy = 'Person-specific search';
-          const response = await workbookClient.resources.searchByName(query);
-          if (response.success && response.data) {
-          // Filter to employees only (TypeId 2)
-            results = response.data.filter((r) => r.TypeId === ResourceTypes.EMPLOYEE);
+          
+          // Handle "all employees" or "all staff" queries
+          if (query.toLowerCase().includes('all') && (query.toLowerCase().includes('employees') || query.toLowerCase().includes('staff'))) {
+            const response = await workbookClient.resources.search({
+              ResourceType: [ResourceTypes.EMPLOYEE],
+              Active: !includeInactive ? true : undefined
+            });
+            if (response.success && response.data) {
+              results = response.data;
+              searchStrategy = 'All employees search';
+            }
+          } else {
+            const response = await workbookClient.resources.searchByName(query);
+            if (response.success && response.data) {
+              // Filter to employees only (TypeId 2)
+              results = response.data.filter((r) => r.TypeId === ResourceTypes.EMPLOYEE);
+            }
           }
         }
         else if (searchType === 'email') {

@@ -42,14 +42,17 @@ export abstract class BaseService {
       };
 
       const req = https.request(options, (res) => {
-        let data = '';
+        const chunks: Buffer[] = [];
         
         res.on('data', (chunk) => {
-          data += chunk;
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
         
         res.on('end', () => {
           try {
+            // Properly decode UTF-8 data from chunks
+            const data = Buffer.concat(chunks).toString('utf8');
+            
             // Handle successful responses
             if (res.statusCode === 200) {
               const parsedData = data ? JSON.parse(data) : undefined;
@@ -151,14 +154,17 @@ export abstract class BaseService {
       };
 
       const req = https.request(options, (res) => {
-        let data = '';
+        const chunks: Buffer[] = [];
         
         res.on('data', (chunk) => {
-          data += chunk;
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
         
         res.on('end', () => {
           try {
+            // Properly decode UTF-8 data from chunks
+            const data = Buffer.concat(chunks).toString('utf8');
+            
             if (res.statusCode === 200) {
               const parsedData = data ? JSON.parse(data) : undefined;
               resolve({
