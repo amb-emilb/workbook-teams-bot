@@ -153,14 +153,21 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
 export function createGetContactStatsTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'get-people-stats',
-    description: `Get statistics and overview of the Workbook CRM database. Use this tool when users ask for:
-  - Total number of employees, companies, or contacts
-  - Active vs inactive breakdown  
-  - Number of companies in the system
-  - Database overview or summary
-  - "Fresh", "new", "latest" database statistics (auto-purges cache)
+    description: `📊 PRIMARY tool for DATABASE STATISTICS and overview numbers.
+
+  Use this tool for:
+  ✅ "Database statistics"
+  ✅ "Give me database overview"
+  ✅ "How many clients/employees total?"
+  ✅ "Active vs inactive breakdown"
+  ✅ "Compare prospects to clients"
+  ✅ "Resource type summary"
+  ✅ "Fresh/latest stats"
   
-  Auto-detects freshness keywords and purges cache for up-to-date statistics.`,
+  Returns numerical summaries and breakdowns, not individual records.
+  Auto-purges cache for fresh data when requested.
+  
+  DO NOT use for finding specific companies or people - use specialized search tools.`,
   
     inputSchema: z.object({
       query: z.string()

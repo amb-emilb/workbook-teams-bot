@@ -10,17 +10,21 @@ import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.
 export function createUniversalSearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'universal-search',
-    description: `Universal intelligent search across all Workbook CRM data. Use this tool ONLY for complex or ambiguous queries that don't fit other specialized tools:
-  - Mixed or complex queries requiring multiple strategies
-  - Numeric IDs or specific resource lookups
-  - Ambiguous searches that need intelligent routing
+    description: `🚨 LAST RESORT TOOL - Use ONLY when other tools cannot handle the query.
+
+  DO NOT USE for common queries:
+  ❌ "Show me all active clients" → Use companySearchTool
+  ❌ "List employees" → Use searchContactsTool  
+  ❌ "Find companies" → Use companySearchTool
+  ❌ "Export data" → Use enhancedExportTool
+  ❌ "Database stats" → Use getContactStatsTool
   
-  IMPORTANT: For simple queries, use specialized tools instead:
-  - For "employees" or "staff" → Use searchContactsTool (search-people)
-  - For "clients" or "companies" → Use companySearchTool  
-  - For specific people names → Use searchContactsTool
+  ONLY use for:
+  ✅ Complex mixed queries spanning multiple resource types
+  ✅ Numeric ID lookups when exact resource type unknown
+  ✅ Truly ambiguous searches that other tools rejected
   
-  This tool should be a fallback, not the primary choice.`,
+  If unsure, try specialized tools FIRST, use this as absolute LAST RESORT.`,
   
     inputSchema: z.object({
       query: z.string()

@@ -15,20 +15,23 @@ import * as path from 'path';
 export function createEnhancedExportTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'enhanced-export',
-    description: `Intelligent CSV/data export tool that automatically interprets natural language requests. Examples:
-  - "CSV of all active clients with responsible employee" → Exports clients with employee mapping
-  - "Export Danish clients to CSV" → Geographic filtering + CSV format
-  - "Give me all prospects as spreadsheet" → Prospects export in CSV
-  - "Download contact persons with company info" → Contacts with company mapping
-  - "Export all employees with email addresses" → Employee data export
+    description: `🗂️ FILE EXPORT ONLY - Use ONLY when users explicitly want downloadable files.
+
+  DO NOT USE for display/viewing queries:
+  ❌ "Show me all active clients" → Use companySearchTool (for display)
+  ❌ "List employees" → Use searchContactsTool (for display)
+  ❌ "Give me stats" → Use getContactStatsTool (for display)
   
-  The tool intelligently:
-  - Detects resource types from context (clients, prospects, employees, contacts)
-  - Applies geographic filters (Danish, Norwegian, etc.)
-  - Includes responsible employee mapping when requested
-  - Maps contact persons to their companies
-  - Handles active/inactive filtering automatically
-  - Provides downloadable files via PostgreSQL storage`,
+  ONLY use when users want EXPORTS/DOWNLOADS:
+  ✅ "Export all active clients to CSV"
+  ✅ "Give me a CSV of employees"  
+  ✅ "Download contact data as spreadsheet"
+  ✅ "Create a file with Danish clients"
+  
+  Key indicators for this tool:
+  - Words: export, download, CSV, spreadsheet, file, save
+  - User wants data they can open in Excel/save locally
+  - NOT for just displaying/viewing data in chat`,
   
     inputSchema: z.object({
       format: z.enum(['csv', 'json', 'report', 'statistics'])

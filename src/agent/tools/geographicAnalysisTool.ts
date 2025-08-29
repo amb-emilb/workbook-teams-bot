@@ -11,12 +11,21 @@ import { WorkbookClient, Resource, ToolParameters } from '../../services/index.j
 export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'geographic-analysis',
-    description: `Analyze geographic distribution and location patterns in Workbook data. Use this tool to:
-  - Analyze geographic distribution of resources and contacts
-  - Identify location clustering and regional patterns
-  - Find location-based coverage gaps
-  - Optimize territory assignments and travel planning
-  - Generate location-based insights and recommendations
+    description: `🗺️ GEOGRAPHIC ANALYSIS ONLY - for insights and patterns, NOT simple location searches.
+
+  DO NOT USE for basic location searches:
+  ❌ "List companies in Copenhagen" → Use companySearchTool 
+  ❌ "Find Danish clients" → Use companySearchTool
+  ❌ "Show clients in Denmark" → Use companySearchTool
+  
+  ONLY use for analytical insights:
+  ✅ "Analyze geographic distribution of our clients"
+  ✅ "What locations have the highest resource concentration?"
+  ✅ "Show geographic coverage gaps and opportunities"
+  ✅ "Geographic clustering patterns and recommendations"
+  
+  This tool provides analysis and recommendations, not simple data lists.
+  For basic "find companies in X location" use companySearchTool instead.
   
   IMPORTANT: Danish city data uses Danish names (e.g., "København" for Copenhagen, "Århus" for Aarhus).
   When searching for specific cities, use both English and Danish variations:

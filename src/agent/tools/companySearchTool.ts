@@ -12,18 +12,24 @@ import { Resource, Contact } from '../../types/workbook.types.js';
 export function createCompanySearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-company-by-name',
-    description: `Find CLIENT COMPANIES and business entities by name OR responsible employee. Use this tool when users ask to:
-  - Find CLIENT COMPANIES (not individual people/employees)
-  - List clients, prospects, or business entities
-  - Get company/client details and structure  
-  - Look up specific companies by name (e.g., "ADECCO", "Microsoft", "Ambition")
-  - Find clients managed/handled by specific employees (e.g., "clients managed by admin")
+    description: `🏢 PRIMARY tool for CLIENT COMPANIES, business entities, and LOCATION searches.
+
+  Use this tool for:
+  ✅ "Show me all active clients"
+  ✅ "List client companies" 
+  ✅ "Find companies in Copenhagen/Denmark"
+  ✅ "Show Danish clients"
+  ✅ "ADECCO company details"
+  ✅ "Clients managed by admin"
+  ✅ "All inactive companies"
+  
+  Handles both search AND display for companies.
+  Supports geographic filtering for location-based queries.
   
   IMPORTANT: Use this for CLIENT COMPANIES (TypeId 3), not individual people.
-  For employees or contact persons, use the people search tool.
-  Auto-detects "fresh/new/latest" keywords and purges cache for fresh data.
-  
-  This tool supports case-insensitive partial matching and returns full company hierarchy.`,
+  For employees or contact persons, use searchContactsTool.
+  For data exports, use enhancedExportTool.
+  For complex analysis, use geographicAnalysisTool.`,
   
     inputSchema: z.object({
       companyName: z.string()
