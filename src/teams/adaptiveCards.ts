@@ -100,7 +100,7 @@ export function createCompanyResultsCard(companies: CompanyResult[]): Attachment
                       type: 'Action.Submit',
                       title: 'Details',
                       data: {
-                        action: 'company_details',
+                        verb: 'company_details',
                         companyName: company.name,
                         companyId: company.id
                       }
@@ -119,7 +119,7 @@ export function createCompanyResultsCard(companies: CompanyResult[]): Attachment
         type: 'Action.Submit',
         title: `View All ${companies.length} Companies`,
         data: {
-          action: 'view_all_companies'
+          verb: 'view_all_companies'
         }
       }
     ] : []
@@ -199,7 +199,7 @@ export function createContactResultsCard(contacts: ContactResult[]): Attachment 
         type: 'Action.Submit',
         title: `View All ${contacts.length} Contacts`,
         data: {
-          action: 'view_all_contacts'
+          verb: 'view_all_contacts'
         }
       }
     ] : []
@@ -304,14 +304,14 @@ export function createDataQualityCard(metrics: DataQualityMetrics): Attachment {
         type: 'Action.Submit',
         title: 'Export Data Quality Report',
         data: {
-          action: 'export_data_quality'
+          verb: 'export_data_quality'
         }
       },
       {
         type: 'Action.Submit',
         title: 'Show Recommendations',
         data: {
-          action: 'data_quality_recommendations'
+          verb: 'data_quality_recommendations'
         }
       }
     ]
@@ -412,7 +412,7 @@ export function createDownloadCard(download: DownloadResult): Attachment {
         type: 'Action.Submit',
         title: 'Export Another Format',
         data: {
-          action: 'export_options'
+          verb: 'export_options'
         }
       }
     ]

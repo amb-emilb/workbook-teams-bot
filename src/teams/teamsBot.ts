@@ -425,6 +425,21 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
     await context.sendActivity('What format would you like? You can ask for CSV, Excel, or other formats.');
   });
 
+  // Handle export data quality report button
+  app.adaptiveCards.actionSubmit('export_data_quality', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] Export data quality clicked:', data);
+    await context.sendActivity('Generating data quality report...');
+    const response = await executeMastraAgent('Export a comprehensive data quality report to CSV', state, context);
+    await enhanceResponseWithAdaptiveCards(response, context);
+  });
+
+  // Handle data quality recommendations button
+  app.adaptiveCards.actionSubmit('data_quality_recommendations', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
+    console.log('[ADAPTIVE CARDS] Data quality recommendations clicked:', data);
+    const response = await executeMastraAgent('Show me data quality improvement recommendations', state, context);
+    await context.sendActivity(response);
+  });
+
   // Add logging for debugging - using conversationUpdate as a generic activity handler
   app.conversationUpdate('membersAdded', async (context: TurnContext) => {
     console.log('Processing activity', { 

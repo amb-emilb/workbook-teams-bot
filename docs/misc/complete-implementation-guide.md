@@ -108,16 +108,98 @@
 - [ ] **Improve Error Handling** - Better fallbacks when searches fail
 - [ ] **Fix universalSearchTool Reliability** - Inconsistent results for same data
 
-#### **🧪 Test Suite Improvements:**
-- [ ] **Add Data Validation Tests** - Verify data completeness and accuracy
-- [ ] **Performance Testing** - Monitor token usage and response times
-- [ ] **Geographic Data Tests** - Verify location-based searches work
+### **PHASE 16: Critical System Restoration** 🚨 **URGENT**
+**Based on comprehensive test results showing 30/55 failures (45% success rate)**
 
-### **PHASE 16: Performance Optimization** 📋 **PLANNED**
-- [ ] Optimize PostgreSQL connection pooling
-- [ ] Implement agent response caching
-- [ ] Add response time monitoring
-- [ ] Test under high load scenarios
+#### **🔥 CRITICAL FAILURES TO FIX IMMEDIATELY:**
+
+##### **1. Tool Selection Logic Breakdown** 
+- [ ] **Fix Tool Routing Logic** - Wrong tools selected for 70% of queries
+  - universalSearchTool used instead of companySearchTool/searchContactsTool
+  - enhancedExportTool used for simple display queries  
+  - dataQualityTool used instead of getContactStatsTool
+  - geographicAnalysisTool used instead of companySearchTool
+
+##### **2. Adaptive Cards Interactive Failure**
+- [ ] **Fix Adaptive Card Button Actions** - Only download buttons work
+  - "Details" buttons show "Your response was sent to the app" with no action
+  - Company/contact detail buttons completely non-functional
+  - Need proper Action.Submit handling in Teams bot
+
+##### **3. Conversation Context Loss**
+- [ ] **Fix Agent Memory & Context** - Agent loses conversation thread
+  - "Do all clients have contact persons?" → "Not all clients..." → User: "yes" → Random Copenhagen response
+  - Context sometimes not maintained between messages
+  - Follow-up questions generate unrelated responses
+
+##### **4. Export System Breakdown** 
+- [ ] **Fix enhancedExportTool Logic** - Wrong CSV files generated (29% success rate)
+  - Query: "Clients managed by Jeppe" → Gets unrelated CSV
+  - Export requests generate wrong data sets
+  - Tool parameters not correctly interpreted
+
+##### **5. Tool Success Rate Crisis**
+- [ ] **Fix universalSearchTool** - 0% success rate (5/5 failures)
+  - Returns "no data" when data exists
+  - Wrong tool selection for basic queries
+- [ ] **Fix advancedFilterTool** - 0% success rate (4/4 failures)  
+  - Inactive filtering no longer works
+  - Complex queries fail consistently
+- [ ] **Fix geographicAnalysisTool** - 0% success rate (2/2 failures)
+  - Geographic searches completely broken
+  - Returns analysis instead of actionable data
+
+##### **6. Core Functionality Regressions**
+- [ ] **Restore Inactive Resource Filtering** - Lost in recent changes
+  - "List inactive clients" not working properly
+  - Filter parameters not correctly applied
+- [ ] **Fix Basic Company Search** - 3/7 success rate (43%)
+  - "Show all active clients" → enhancedExportTool instead of display
+  - Tool expects vs actual usage mismatch
+- [ ] **Fix People Search Routing** - 5/8 success rate (63%)
+  - Employee queries routed to wrong tools
+  - Contact person searches inconsistent
+
+##### **7. System Performance Issues**
+- [ ] **Fix Response Time Problems** - Multiple 10+ second responses
+  - Test 37: 12.7 seconds for simple query
+  - Test 1: 8+ seconds for database stats
+  - Cache hit rates still problematic in some areas
+
+##### **8. Business Logic Failures**
+- [ ] **Fix Complex Query Processing** - 0/5 success rate (0%)
+  - Multi-step queries completely broken
+  - Prospects vs clients comparison fails
+  - Resource type summaries use wrong tools
+- [ ] **Fix Business Intelligence Queries** - 1/3 success rate (33%)
+  - Client retention analysis broken
+  - Contact coverage analysis incorrect
+
+#### **🔍 DETAILED DIAGNOSTIC ACTIONS:**
+
+##### **Phase 16A: Emergency Tool Selection Audit**
+- [ ] Review ALL tool descriptions and selection criteria
+- [ ] Fix companySearchTool vs universalSearchTool routing
+- [ ] Fix searchContactsTool vs enhancedExportTool routing  
+- [ ] Implement proper tool priority/selection logic
+
+##### **Phase 16B: Adaptive Cards & Teams Integration**
+- [ ] Debug Teams bot message handling for Action.Submit
+- [ ] Fix card button event processing
+- [ ] Test all interactive card scenarios
+- [ ] Implement proper response handling for card actions
+
+##### **Phase 16C: Context & Memory System**
+- [ ] Audit conversation memory persistence
+- [ ] Fix follow-up question context retention
+- [ ] Test multi-turn conversation scenarios
+- [ ] Implement proper context passing between messages
+
+##### **Phase 16D: Export & Data Generation**
+- [ ] Audit enhancedExportTool parameter interpretation
+- [ ] Fix CSV generation logic for specific queries
+- [ ] Test all export scenarios from failed tests
+- [ ] Implement proper data filtering for exports
 
 ### **PHASE 17: Enhanced Features** 📋 **PLANNED**
 - [ ] Add file upload support
