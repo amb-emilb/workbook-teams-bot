@@ -12,7 +12,7 @@ The Teams AI agent demonstrates significant functionality but suffers from criti
 
 1. **Export Tool Critical Failure**: Multiple data misalignment issues and file naming bugs
 2. **Tool Selection Problems**: Poor semantic understanding for granular requests  
-3. **Tool Oversaturation**: 5 tools marked for removal/consolidation
+3. **Tool Ecosystem Optimization**: 1 tool consolidation identified, 3 tools require additional test coverage
 4. **Data Relationship Gaps**: Missing abstraction for complex entity relationships
 
 ## Detailed Analysis Results
@@ -46,7 +46,7 @@ The Teams AI agent demonstrates significant functionality but suffers from criti
 
 | Tool | Usage Count | Success Rate | Status | Recommendation |
 |------|-------------|--------------|--------|----------------|
-| **companySearchTool** | 16 | 81% | ✅ CRITICAL | **KEEP** - Primary company tool |
+| **companySearchTool** | 16 | 81% | ✅ CRITICAL | **KEEP** - Primary company tool (fix description) |
 | **searchContactsTool** | 9 | 100% | ✅ EXCELLENT | **KEEP** - Perfect performance |
 | **enhancedExportTool** | 9 | 44% | ❌ FAILING | **FIX CRITICAL** - Major data issues |
 | **getContactStatsTool** | 9 | 56% | ⚠️ MODERATE | **IMPROVE** - Statistics tool |
@@ -56,21 +56,23 @@ The Teams AI agent demonstrates significant functionality but suffers from criti
 | **portfolioAnalysisTool** | 3 | 33% | ❌ POOR | **IMPROVE** - Management analytics |
 | **updateWorkingMemory** | 3 | 67% | ✅ GOOD | **KEEP** - Memory management |
 | **performanceMonitoringTool** | 1 | 0% | ❌ BROKEN | **FIX OR REMOVE** - Implementation issues |
-| **hierarchicalSearchTool** | 1 | 100% | 🔄 REDUNDANT | **CONSOLIDATE** - Overlaps with companySearchTool |
+| **hierarchicalSearchTool** | 1 | 100% | 🔄 CONSOLIDATE | **MERGE INTO companySearchTool** - Bulk processing capability |
 | **bulkOperationsTool** | 0 | N/A | ⚠️ TEST GAP | **KEEP + ADD TESTS** - Essential for data ops |
-| **relationshipMappingTool** | 0 | N/A | 🗑️ UNUSED | **REMOVE** - Functionality overlap |
-| **geographicAnalysisTool** | 0 | N/A | 🗑️ UNUSED | **REMOVE** - Complex tool, rarely needed |
+| **relationshipMappingTool** | 0 | N/A | ⚠️ TEST GAP | **KEEP + ADD TESTS** - Unique relationship intelligence |
+| **geographicAnalysisTool** | 0 | N/A | ⚠️ TEST GAP | **KEEP + ADD TESTS** - Critical for location queries |
 
 ## Priority 1: Critical Export Tool Fixes
 
 ### Issue 1: Double File Extension Bug
 **Location**: `src/agent/tools/enhancedExportTool.ts:331`
+- [x] **Fix double file extension bug**: Replace line 331 with extension cleanup logic
+- [x] **Test fix**: Verify no .csv.csv files are generated
+- [x] **Validate existing exports**: Confirm fix doesn't break current file naming
+
 **Current Code**:
 ```typescript
 const fullFileName = `${actualFileName}.${fileExtension}`;
 ```
-
-**Problem**: When `fileName` already contains extension, creates `.csv.csv`
 
 **Solution**:
 ```typescript
@@ -81,11 +83,12 @@ const fullFileName = `${cleanFileName}.${fileExtension}`;
 
 ### Issue 2: Wrong Resource Type Filtering 
 **Location**: `src/agent/tools/enhancedExportTool.ts:164`
-**Problem**: `intelligentContext.resourceTypes` returns wrong types for complex queries
+- [x] **Rewrite processUserQuery() function**: Implement proper entity recognition logic
+- [x] **Fix client relationship queries**: Ensure "clients with employees" returns client data (TypeId=3) not employees (TypeId=2)
+- [x] **Test relationship exports**: Validate TEST 19 scenario "CSV of active clients mapped with responsible employee"
+- [ ] **Add unit tests**: Create tests for all processUserQuery() scenarios
 
-**Current Logic**: 
-- "clients mapped with responsible employee" → Returns [2] (employees)
-- Should return [3] (clients) with employee relationship data
+**Problem**: `intelligentContext.resourceTypes` returns wrong types for complex queries
 
 **Solution**: Rewrite `processUserQuery()` function with proper entity recognition:
 ```typescript
@@ -112,7 +115,10 @@ function processUserQuery(query: string) {
 ```
 
 ### Issue 3: Missing Name Filtering
-**Problem**: "Export clients starting with A" exports all clients
+- [x] **Implement post-fetch name filtering**: Add regex filtering after data retrieval
+- [x] **Test "starting with" queries**: Validate TEST 40 scenario "Export only active clients starting with A"
+- [x] **Add filter validation**: Ensure filter correctly limits results to matching names only
+
 **Solution**: Implement post-fetch name filtering:
 ```typescript
 // Apply name filtering after fetch
@@ -125,16 +131,16 @@ if (intelligentContext.nameFilter) {
 ## Priority 2: Tool Selection Algorithm Improvements
 
 ### Current Problem
-Tool selection uses keyword matching instead of semantic understanding, causing:
-- Geographic queries → Wrong tools (advancedFilterTool instead of companySearchTool)
-- Simple requests → Complex tools (universalSearchTool instead of specialized tools)
-- Export confusion → Wrong data types
+- [ ] **Document tool selection failures**: Geographic queries → Wrong tools (advancedFilterTool instead of geographicAnalysisTool)
+- [ ] **Identify semantic gaps**: Simple requests → Complex tools (universalSearchTool instead of specialized tools)
+- [ ] **Catalog export confusion cases**: Wrong data types selected for export requests
 
 ### Solution: Enhanced Tool Selection Logic
 **Location**: Teams AI planner in `src/teams/teamsBot.ts`
-
-**Current Approach**: Mastra Agent auto-selects based on tool descriptions
-**Improved Approach**: Add tool selection validation middleware
+- [ ] **Implement tool selection validation middleware**: Add interceptor to validate tool choices
+- [ ] **Add geographic query routing**: Ensure Danish/location queries route to geographicAnalysisTool
+- [ ] **Test improved tool selection**: Validate against failed test scenarios (TEST 14, TEST 31)
+- [ ] **Monitor tool selection accuracy**: Track improvements in tool choice correctness
 
 ```typescript
 // Add tool selection interceptor
@@ -142,9 +148,14 @@ const toolSelectionValidator = {
   validateToolChoice(query: string, selectedTool: string): boolean {
     const queryLower = query.toLowerCase();
     
-    // Company queries should use companySearchTool
+    // Company queries should use companySearchTool (except geographic queries)
     if (queryLower.includes('companies') || queryLower.includes('clients') || 
         queryLower.includes('suppliers') || queryLower.includes('prospects')) {
+      // Geographic queries should use geographicAnalysisTool
+      if (queryLower.includes('danish') || queryLower.includes('denmark') || 
+          queryLower.includes('copenhagen') || queryLower.includes('in ')) {
+        return selectedTool === 'geographic-analysis';
+      }
       return selectedTool === 'search-company-by-name';
     }
     
@@ -168,8 +179,22 @@ const toolSelectionValidator = {
 
 ### Remove Redundant/Unused Tools
 
-#### 1. Remove `relationshipMappingTool`
-**Reason**: 0 usage, functionality covered by `companySearchTool` with `includeHierarchy=true`
+#### 1. ~~Remove `relationshipMappingTool`~~ **REVISED: KEEP relationshipMappingTool** ⚠️ **UNIQUE RELATIONSHIP INTELLIGENCE**
+**Analysis**: Despite 0 usage in test suite, this tool provides **unique relationship intelligence capabilities** not found in any other tool.
+
+**Unique functionality that would be lost:**
+- **Visual ASCII Tree Relationship Mapping**: Comprehensive visual relationship trees with hierarchical structure and connection strength indicators
+- **Connection Strength Scoring**: Weighted algorithm (0-100) based on account manager (30pts), contact count (40pts), active status (20pts), email presence (10pts)
+- **Account Manager Portfolio Context**: Shows "what other clients does this client's account manager handle?" - relationship context from client perspective
+- **Recursive Sub-Company Discovery**: Configurable depth exploration (maxDepth 1-5) for complex organizational hierarchies
+- **Multi-Company Batch Relationship Analysis**: Comparative relationship insights across multiple companies
+
+**Why other tools don't cover this:**
+- **companySearchTool**: Only basic hierarchy for single company, no visualization, no connection scoring, no portfolio context
+- **hierarchicalSearchTool**: Basic company-contact relationships, no visualization, no portfolio analysis
+- **portfolioAnalysisTool**: Employee workload analysis (top-down from employee), NOT relationship context from client perspective
+
+**Zero usage indicates test coverage gap, not lack of utility.** Missing test scenarios like "Show relationship network for ADECCO with visualization" or "What's the connection strength for our top 5 clients?"
 
 #### 2. **KEEP `geographicAnalysisTool`** ⚠️ **CRITICAL TOOL FOR LOCATION QUERIES**  
 **Analysis**: Despite 0 usage in test suite, this tool is **ESSENTIAL** for geographic queries like "Danish companies" or "companies in Copenhagen". 
@@ -182,12 +207,14 @@ const toolSelectionValidator = {
 
 **Problem**: `companySearchTool` claims to support geographic filtering in its description ("Find companies in Copenhagen/Denmark") but **does not implement it**. The actual implementation only handles company name searches and responsible employee searches.
 
-**Solution**: Keep `geographicAnalysisTool` and fix the misleading description in `companySearchTool`. Geographic queries should route to `geographicAnalysisTool`, not `companySearchTool`.
+**Solution**: 
+- [ ] Keep `geographicAnalysisTool` as essential geographic query handler
+- [ ] Fix misleading description in `companySearchTool` to remove false geographic capabilities
+- [ ] Update tool selection algorithm to route geographic queries to `geographicAnalysisTool`
 
-#### 3. ~~Remove `bulkOperationsTool`~~ **REVISED: KEEP bulkOperationsTool**
-**Reason**: Essential for data management operations (deactivating clients, updating contact info, batch operations). Zero usage indicates **test coverage gap**, not lack of necessity.
+### Consolidate Tools with Justified Overlap
 
-#### 4. **CONSOLIDATE `hierarchicalSearchTool` into `companySearchTool`** ✅ **JUSTIFIED CONSOLIDATION**
+#### 1. **CONSOLIDATE `hierarchicalSearchTool` into `companySearchTool`** ✅ **JUSTIFIED CONSOLIDATION**
 **Analysis**: While hierarchicalSearchTool provides unique bulk processing capabilities, it has significant functional overlap with companySearchTool's hierarchy features.
 
 **Unique capabilities to preserve:**
@@ -205,19 +232,46 @@ const toolSelectionValidator = {
 
 **Implementation**: Merge hierarchicalSearchTool's bulk processing logic into companySearchTool, preserving the efficiency benefits while reducing tool count.
 
+**Consolidation Implementation Plan**:
+- [ ] **Feature Flag**: Add `ENABLE_BULK_MODE` feature flag for gradual rollout
+- [ ] **Performance Monitoring**: Baseline current hierarchicalSearchTool performance vs companySearchTool bulk operations
+- [ ] **Rollback Strategy**: Keep hierarchicalSearchTool code available for 2 weeks post-consolidation
+- [ ] **Integration Testing**: Test bulk mode with existing companySearchTool functionality
+
+**Performance Assessment**:
+- [ ] **Baseline Performance**: Measure current hierarchicalSearchTool single `getAllResourcesComplete()` call processing
+- [ ] **Risk Assessment**: Evaluate companySearchTool individual API call performance degradation
+- [ ] **Implementation**: Implement bulk processing using hierarchicalSearchTool's efficient approach
+- [ ] **Validation**: Ensure bulk operations maintain <2s response time for <100 companies
+
+**Rollback Triggers**:
+- [ ] **Monitor**: Performance degradation >50% for bulk operations
+- [ ] **Monitor**: Integration failures affecting existing companySearchTool functionality
+- [ ] **Monitor**: User-reported functionality loss in company hierarchy features
+
+### Keep Essential Tools with Test Coverage Gaps
+
+#### 1. ~~Remove `bulkOperationsTool`~~ **REVISED: KEEP bulkOperationsTool**
+**Reason**: Essential for data management operations (deactivating clients, updating contact info, batch operations). Zero usage indicates **test coverage gap**, not lack of necessity.
+
 ### Fix Broken Tools
 
 #### 1. Fix `universalSearchTool` (0% success rate)
 **Current Issue**: Intended as fallback but failing completely
 **Options**:
-- **Option A**: Fix implementation to handle edge cases properly  
-- **Option B**: Remove tool and improve other tool descriptions to cover edge cases
+- [ ] **Option A**: Fix implementation to handle edge cases properly  
+- [ ] **Option B**: Remove tool and improve other tool descriptions to cover edge cases
 
-**Recommendation**: Remove - other tools cover all use cases when properly selected
+**Recommendation**: 
+- [ ] Remove universalSearchTool - other tools cover all use cases when properly selected
+- [ ] Update tool selection algorithm to handle edge cases with existing tools
 
 #### 2. Fix `performanceMonitoringTool` (0% success rate)
 **Current Issue**: Implementation errors causing failures
-**Solution**: Debug and fix core functionality or remove if not essential
+**Solution**: 
+- [ ] Debug and analyze core functionality failures
+- [ ] Determine if tool is essential for system operations
+- [ ] Either fix implementation or remove if non-essential
 
 ## Priority 4: Data Relationship Enhancement
 
@@ -228,7 +282,7 @@ Missing abstraction layer for complex entity relationships causing:
 - Hierarchical data export problems
 
 ### Solution: Relationship Service
-**Create**: `src/services/relationshipService.ts`
+- [ ] **Create**: `src/services/relationshipService.ts` with comprehensive relationship mapping
 
 ```typescript
 export class RelationshipService {
@@ -261,21 +315,42 @@ export class RelationshipService {
 ## Priority 5: Testing and Validation
 
 ### Enhanced Test Coverage
-1. **Unit Tests**: Each tool should have comprehensive unit tests
-2. **Integration Tests**: Tool interaction and data flow tests  
-3. **Regression Tests**: Prevent export data misalignment issues
-4. **Edge Case Tests**: Complex queries and boundary conditions
-5. **Bulk Operations Tests**: Missing test scenarios for essential data management operations
+- [ ] **Unit Tests**: Create comprehensive unit tests for each tool
+- [ ] **Integration Tests**: Implement tool interaction and data flow tests  
+- [ ] **Regression Tests**: Create tests to prevent export data misalignment issues
+- [ ] **Edge Case Tests**: Add complex queries and boundary conditions testing
+- [ ] **Bulk Operations Tests**: Add missing test scenarios for essential data management operations
 
 #### Critical Missing Test Scenarios for bulkOperationsTool
-- **Bulk Deactivation**: "Deactivate all inactive clients from 2020"
-- **Bulk Email Updates**: "Update email domain for all employees from old-domain to new-domain"  
-- **Bulk Status Changes**: "Activate all prospects that meet criteria X"
-- **Bulk Responsible Employee Updates**: "Change responsible employee from John to Jane for all Danish clients"
-- **Bulk Contact Information Updates**: "Update phone numbers for all suppliers in Copenhagen"
-- **Bulk Data Cleanup**: "Remove duplicate email addresses across all contact persons"
+- [ ] **Bulk Deactivation**: "Deactivate all inactive clients from 2020"
+- [ ] **Bulk Email Updates**: "Update email domain for all employees from old-domain to new-domain"  
+- [ ] **Bulk Status Changes**: "Activate all prospects that meet criteria X"
+- [ ] **Bulk Responsible Employee Updates**: "Change responsible employee from John to Jane for all Danish clients"
+- [ ] **Bulk Contact Information Updates**: "Update phone numbers for all suppliers in Copenhagen"
+- [ ] **Bulk Data Cleanup**: "Remove duplicate email addresses across all contact persons"
+
+#### Critical Missing Test Scenarios for relationshipMappingTool
+- [ ] **Visual Relationship Networks**: "Show relationship network for ADECCO with visualization"
+- [ ] **Connection Strength Analysis**: "What's the connection strength for our top 5 clients?"
+- [ ] **Account Manager Portfolio Context**: "Show me all clients managed by admin with relationship visualization"
+- [ ] **Sub-Company Discovery**: "Map the complete organizational hierarchy for Novo Nordisk"
+- [ ] **Multi-Company Relationship Analysis**: "Visualize relationship patterns for all Danish clients"
+
+#### Critical Missing Test Scenarios for geographicAnalysisTool
+- [ ] **Geographic Distribution Analysis**: "Analyze geographic distribution of our clients"
+- [ ] **Location Coverage Gaps**: "What locations have coverage gaps and opportunities?"  
+- [ ] **Regional Clustering Patterns**: "Show clustering patterns of companies in Scandinavia"
+
+#### Critical Missing Cross-Tool Integration Test Scenarios
+- [ ] **Geographic + Relationship Analysis**: "Show relationship network for all Danish clients with visualization"
+- [ ] **Export + Geographic**: "Export clients in Copenhagen with their contact details"
+- [ ] **Portfolio + Geographic**: "Analyze portfolio distribution across Nordic countries"
+- [ ] **Bulk + Relationship**: "Update responsible employees for all clients managed by admin and show impact visualization"
+- [ ] **Stats + Geographic**: "Database statistics broken down by country with coverage analysis"
+- [ ] **Export + Relationship**: "Export client relationship network for ADECCO with connection strength data"
 
 ### Test Automation
+- [ ] Implement automated test suite for export data alignment validation
 ```typescript
 // Example test for export data alignment
 describe('enhancedExportTool', () => {
@@ -300,87 +375,154 @@ describe('enhancedExportTool', () => {
 
 ## Implementation Roadmap
 
-### Phase 1: Critical Fixes (Week 1)
-- [ ] Fix enhancedExportTool double extension bug
-- [ ] Fix resource type filtering in export queries  
-- [ ] Implement name filtering for "starting with" queries
-- [ ] Add export data validation tests
+### Phase 0: Pre-Implementation Validation (Week 1)
+- [x] Validate ResourceTypes constants against CRM system TypeIds
+- [ ] Baseline performance metrics for hierarchicalSearchTool vs companySearchTool
+- [ ] Set up feature flags and rollback infrastructure
+- [ ] Create comprehensive test data set for validation
 
-### Phase 2: Tool Consolidation (Week 2)  
-- [ ] Remove unused tools (relationshipMappingTool only)
-- [ ] Keep geographicAnalysisTool - fix companySearchTool description to remove false geographic claims
-- [ ] Keep bulkOperationsTool - add comprehensive bulk operation tests
-- [ ] Fix or remove universalSearchTool
-- [ ] Fix performanceMonitoringTool implementation
-- [ ] Consolidate hierarchicalSearchTool functionality
+### Phase 1: Critical Export Fixes (Week 2) ✅ **COMPLETED**
+- [x] Fix enhancedExportTool double extension bug (line 331)
+- [x] Fix resource type filtering in export queries (processUserQuery function)
+- [x] Implement name filtering for "starting with" queries
+- [x] Fix relational export field mapping to match actual API response
+- [x] Add export data validation tests
+- [x] Implement intelligent file naming with time stamps to prevent overwrites
+- [x] Fix Contact interface to include Phone1, CellPhone, and Title fields
+- [x] Optimize relational export performance with increased timeouts
+- [x] **Success Criteria**: Export tool success rate 44% → **83%** (5/6 tests passing)
 
-### Phase 3: Tool Selection Enhancement (Week 3)
-- [ ] Implement tool selection validation middleware
-- [ ] Improve tool descriptions for better selection
-- [ ] Add semantic understanding to query processing
-- [ ] Test tool selection improvements
+### Phase 2A: Tool Description Fixes (Week 3)
+- [ ] Fix companySearchTool description to remove false geographic claims
+- [ ] Update tool descriptions for better semantic matching
+- [ ] Implement tool selection validation middleware with corrected geographic routing
+- [ ] Test improved tool selection accuracy
+- [ ] **Success Criteria**: Geographic search success rate 0% → 80%+
 
-### Phase 4: Relationship Enhancement (Week 4)
+### Phase 2B: Broken Tools Remediation (Week 4)
+- [ ] Fix or remove universalSearchTool (0% success rate)
+- [ ] Fix performanceMonitoringTool implementation 
+- [ ] Improve dataQualityTool and portfolioAnalysisTool performance
+- [ ] **Success Criteria**: No tools with 0% success rate
+
+### Phase 3: Tool Consolidation (Week 5)
+- [ ] Implement bulkMode parameter in companySearchTool
+- [ ] Migrate hierarchicalSearchTool functionality with feature flag
+- [ ] Performance testing and validation of consolidation
+- [ ] Gradual rollout with rollback monitoring
+- [ ] **Success Criteria**: Consolidation maintains performance, no functionality loss
+
+### Phase 4: Test Coverage Expansion (Week 6)
+- [ ] Add comprehensive test scenarios for bulkOperationsTool
+- [ ] Add comprehensive test scenarios for relationshipMappingTool
+- [ ] Add comprehensive test scenarios for geographicAnalysisTool
+- [ ] Implement cross-tool integration test scenarios
+- [ ] **Success Criteria**: All previously unused tools have >70% success rate
+
+### Phase 5: Relationship Service Enhancement (Week 7)
 - [ ] Create RelationshipService for complex data relationships
 - [ ] Integrate relationship service with export tool
 - [ ] Update tool implementations to use relationship service
 - [ ] Add comprehensive relationship tests
 
-### Phase 5: Validation and Optimization (Week 5)
-- [ ] Complete test coverage for all tools
+### Phase 6: Final Validation and Optimization (Week 8)
+- [ ] Complete integration testing with all tool improvements
 - [ ] Performance optimization of data fetching
 - [ ] Cache improvements for complex queries
-- [ ] Final integration testing
+- [ ] Final validation against success criteria
+- [ ] **Success Criteria**: Overall success rate 53% → 85%+
+
+## Risk Mitigation and Contingency Planning
+
+### High-Risk Phase Identification
+- **Phase 1**: Export tool fixes could impact existing functionality
+- **Phase 3**: Tool consolidation has highest rollback risk
+- **Phase 4**: Test coverage expansion might reveal additional issues
+
+### Rollback Triggers and Response Plans
+- [ ] **Monitor Performance Degradation >50%**: Immediate rollback to previous tool version
+- [ ] **Monitor Success Rate Drop >20%**: Pause phase, investigate root cause
+- [ ] **Monitor User-Reported Critical Issues**: Emergency rollback within 2 hours
+- [ ] **Monitor Integration Test Failures >30%**: Phase postponement and issue resolution
+
+### Continuous Monitoring During Implementation
+- [ ] **Daily**: Set up automated test runs with success rate monitoring
+- [ ] **Weekly**: Implement performance benchmarks and user feedback collection  
+- [ ] **Per Phase**: Execute comprehensive validation before proceeding to next phase
+
+### Contingency Plans
+- [ ] **Export Tool Rollback**: Keep old processUserQuery logic available for 4 weeks
+- [ ] **Tool Consolidation Rollback**: Configure feature flag for instant revert to hierarchicalSearchTool
+- [ ] **Test Data Backup**: Preserve original test scenarios for regression validation
+- [ ] **Performance Baseline**: Maintain performance monitoring throughout implementation
 
 ## Success Metrics
 
-### Revised Tool Assessment (bulkOperationsTool)
+### Revised Tool Assessment Summary
 
-**Important Correction**: After stakeholder input, `bulkOperationsTool` has been **reclassified** from "unused/remove" to "essential/test gap." The tool's zero usage in tests indicates **inadequate test coverage** for critical data management operations, not lack of necessity.
+**Important Corrections**: After comprehensive analysis of tool functionality and user feedback:
 
-**Essential Operations Requiring bulkOperationsTool**:
-- Client lifecycle management (activation/deactivation)
-- Contact information maintenance (email updates, phone changes)  
-- Organizational changes (responsible employee reassignments)
-- Data quality improvements (bulk cleanup operations)
+1. **`bulkOperationsTool`** has been **reclassified** from "unused/remove" to "essential/test gap." Zero usage indicates inadequate test coverage for critical data management operations, not lack of necessity.
 
-**Recommendation Changed**: Keep tool + expand test coverage rather than removal.
+2. **`relationshipMappingTool`** has been **reclassified** from "unused/remove" to "unique intelligence/test gap." Provides visual relationship mapping, connection strength scoring, and account manager portfolio context not available in any other tool.
 
-### Target Improvements
-- **Overall Success Rate**: 53% → 85%+ 
-- **Export Tool Success**: 44% → 90%+
-- **Tool Count Reduction**: 13 tools → 11-12 tools (keeping bulkOperationsTool and geographicAnalysisTool)
-- **Zero Critical Data Misalignments**
+3. **`geographicAnalysisTool`** has been **reclassified** from "unused/remove" to "critical/test gap." Essential for location-based queries that companySearchTool claims to support but doesn't implement.
+
+4. **`hierarchicalSearchTool`** has been **classified** for "consolidation" into companySearchTool. While it provides unique bulk processing capabilities, the functional overlap justifies consolidation rather than removal.
+
+**Net Result**: Only 1 tool reduction (hierarchicalSearchTool consolidation) instead of the originally proposed 5 tool removals. The zero usage patterns indicate **systematic test coverage gaps**, not tool redundancy.
+
+### Target Improvements by Phase
+
+| Phase | Target Improvement | Current → Target | Success Criteria |
+|-------|-------------------|------------------|------------------|
+| **Phase 0** | Infrastructure | N/A | Feature flags operational, baselines established |
+| **Phase 1** | Export Tool Success | 44% → 70%+ | Zero data misalignment issues, no .csv.csv files |
+| **Phase 2A** | Geographic Search | 0% → 80%+ | Tool selection routes correctly to geographicAnalysisTool |
+| **Phase 2B** | Broken Tools | 0% success tools → 50%+ | universalSearchTool and performanceMonitoringTool functional |
+| **Phase 3** | Tool Consolidation | 13 → 12 tools | hierarchicalSearchTool functionality preserved in companySearchTool |
+| **Phase 4** | Test Coverage | 0% → 70%+ | bulkOperations, relationshipMapping, geographic tools tested |
+| **Phase 5** | Data Relationships | Manual → Automated | RelationshipService handles complex entity mappings |
+| **Phase 6** | Overall System | 53% → 85%+ | All test categories >80% success rate |
 
 ### Key Performance Indicators
-1. **Test Pass Rate**: All 55 test scenarios should achieve >80% success
-2. **Export Data Accuracy**: 100% alignment between requested and exported data
-3. **Tool Selection Accuracy**: >90% appropriate tool selection
-4. **Response Time**: <5s average for complex queries
-5. **User Satisfaction**: Teams users report improved accuracy and reliability
+
+#### Per-Phase Success Criteria
+- [ ] **Export Data Accuracy**: Achieve 100% alignment between requested and exported data (Phase 1)
+- [ ] **Tool Selection Accuracy**: Achieve >90% appropriate tool selection (Phase 2A)
+- [ ] **Zero Broken Tools**: Eliminate all tools with 0% success rate (Phase 2B)
+- [ ] **Consolidation Success**: Ensure no performance degradation >10% (Phase 3)
+- [ ] **Test Coverage**: Achieve all tools have >70% success rate (Phase 4)
+
+#### Overall System Health
+- [ ] **Response Time**: Maintain <5s average for complex queries
+- [ ] **User Satisfaction**: Ensure Teams users report improved accuracy and reliability
+- [ ] **System Stability**: Achieve <5% rollback incidents during implementation
+- [ ] **Performance Consistency**: Maintain <20% variance in response times
+- [ ] **Data Integrity**: Achieve zero critical data misalignments in production
 
 ## Monitoring and Maintenance
 
 ### Ongoing Monitoring
-1. **Weekly Test Runs**: Automated comprehensive test suite
-2. **Performance Metrics**: Track tool usage and success rates
-3. **User Feedback**: Teams chat feedback collection
-4. **Data Quality Checks**: Regular export validation
+- [ ] **Weekly Test Runs**: Set up automated comprehensive test suite
+- [ ] **Performance Metrics**: Implement tracking for tool usage and success rates
+- [ ] **User Feedback**: Set up Teams chat feedback collection system
+- [ ] **Data Quality Checks**: Implement regular export validation checks
 
 ### Maintenance Schedule
-- **Monthly**: Tool performance review and optimization
-- **Quarterly**: Test scenario updates and new feature validation
-- **Annually**: Complete tool ecosystem review
+- [ ] **Monthly**: Schedule tool performance review and optimization
+- [ ] **Quarterly**: Plan test scenario updates and new feature validation
+- [ ] **Annually**: Conduct complete tool ecosystem review
 
 ## Conclusion
 
 The Teams AI agent shows strong potential with several high-performing tools (companySearchTool: 81% success, searchContactsTool: 100% success). However, critical issues in export functionality and tool selection must be addressed immediately.
 
 The recommended remediation plan focuses on:
-1. **Immediate fixes** for critical export bugs
-2. **Tool ecosystem optimization** through consolidation  
-3. **Enhanced intelligence** in tool selection
-4. **Robust testing** to prevent regression
+- [ ] **Immediate fixes** for critical export bugs
+- [ ] **Tool ecosystem optimization** through consolidation  
+- [ ] **Enhanced intelligence** in tool selection
+- [ ] **Robust testing** to prevent regression
 
 Implementation of this plan should improve overall system reliability from 53% to 85%+ success rate while reducing complexity and maintenance overhead.
 

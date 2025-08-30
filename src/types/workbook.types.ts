@@ -44,6 +44,7 @@ export interface Contact {
   Initials: string;
   Email?: string;
   Phone1?: string;               // Optional - only present if contact has phone defined
+  CellPhone?: string;            // Optional - mobile phone number
   ParentResourceId: number;        // Links to parent company resource
   Active: boolean;
   // Permission fields
@@ -65,6 +66,7 @@ export interface Contact {
   ReportLCID?: number;
   ReleaseState?: number;
   DefaultActivityType?: number;
+  Title?: string;                // Job title
 }
 
 // Hierarchical structure for representing client relationships

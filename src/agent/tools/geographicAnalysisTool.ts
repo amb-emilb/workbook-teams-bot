@@ -11,21 +11,24 @@ import { WorkbookClient, Resource, ToolParameters } from '../../services/index.j
 export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'geographic-analysis',
-    description: `🗺️ GEOGRAPHIC ANALYSIS ONLY - for insights and patterns, NOT simple location searches.
+    description: `🗺️ LOCATION-BASED QUERIES - for geographic searches, filtering, and analysis.
 
-  DO NOT USE for basic location searches:
-  ❌ "List companies in Copenhagen" → Use companySearchTool 
-  ❌ "Find Danish clients" → Use companySearchTool
-  ❌ "Show clients in Denmark" → Use companySearchTool
+  Use this tool for ALL location-based queries:
+  ✅ "List companies in Copenhagen"
+  ✅ "Find Danish clients" 
+  ✅ "Show clients in Denmark"
+  ✅ "Companies in Århus"
+  ✅ "All resources in Copenhagen area"
+  ✅ "Clients by city/country"
   
-  ONLY use for analytical insights:
+  Also for geographic analysis:
   ✅ "Analyze geographic distribution of our clients"
   ✅ "What locations have the highest resource concentration?"
   ✅ "Show geographic coverage gaps and opportunities"
   ✅ "Geographic clustering patterns and recommendations"
   
-  This tool provides analysis and recommendations, not simple data lists.
-  For basic "find companies in X location" use companySearchTool instead.
+  Handles both simple location filtering AND complex geographic analysis.
+  companySearchTool cannot filter by location - use this tool instead.
   
   IMPORTANT: Danish city data uses Danish names (e.g., "København" for Copenhagen, "Århus" for Aarhus).
   When searching for specific cities, use both English and Danish variations:

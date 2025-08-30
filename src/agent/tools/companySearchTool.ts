@@ -12,25 +12,24 @@ import { Resource, Contact } from '../../types/workbook.types.js';
 export function createCompanySearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-company-by-name',
-    description: `🏢 PRIMARY tool for COMPANIES (clients, suppliers, prospects), business entities, and LOCATION searches.
+    description: `🏢 PRIMARY tool for COMPANIES (clients, suppliers, prospects) and business entity searches by NAME.
 
   Use this tool for:
   ✅ "Show me all active clients"
   ✅ "List client companies" 
   ✅ "Show all suppliers"
-  ✅ "Find companies in Copenhagen/Denmark"
-  ✅ "Show Danish clients"
   ✅ "ADECCO company details"
   ✅ "Clients managed by admin"
   ✅ "All inactive companies"
+  ✅ "Companies starting with A"
   
   Handles both search AND display for companies.
-  Supports geographic filtering for location-based queries.
+  Searches by company name or responsible employee name only.
   
   IMPORTANT: Use this for COMPANIES (TypeId 3=Clients, 4=Suppliers, 6=Prospects), not individual people.
   For employees or contact persons, use searchContactsTool.
   For data exports, use enhancedExportTool.
-  For complex analysis, use geographicAnalysisTool.`,
+  For location-based queries (cities, countries), use geographicAnalysisTool.`,
   
     inputSchema: z.object({
       companyName: z.string()

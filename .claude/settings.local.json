@@ -13,7 +13,8 @@
       "Bash(az webapp show:*)",
       "Bash(az webapp deployment list:*)",
       "Bash(az webapp config appsettings list:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [
       "Bash(rm -rf /)",

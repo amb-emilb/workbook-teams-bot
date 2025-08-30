@@ -167,6 +167,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         const finalIncludeResponsible = includeResponsibleEmployee || intelligentContext.includeResponsibleEmployee;
         const finalIncludeCompany = includeCompanyMapping || intelligentContext.includeCompanyMapping;
         const employeeName = intelligentContext.employeeName;
+        const nameStartsWith = intelligentContext.nameStartsWith;
 
         // Handle employee name lookup if specified (e.g., "Clients managed by Jeppe")
         let responsibleEmployeeIds: number[] | undefined;
@@ -201,15 +202,38 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         if (companyIds) {searchParams.CompanyIds = companyIds;}
         if (departmentIds) {searchParams.DepartmentIds = departmentIds;}
 
-        // Get data from WorkbookClient
-        console.log('� Fetching resources with parameters:', searchParams);
-        const response = await workbookClient.resources.search(searchParams);
-      
-        if (!response.success || !response.data) {
-          throw new Error('Failed to fetch resource data');
-        }
+        // Handle multi-resource type queries (e.g., "clients mapped with contact persons")
+        let resources: Resource[] = [];
+        
+        if (finalResourceTypes && finalResourceTypes.length > 1) {
+          // Multi-resource type query - fetch each type separately
+          console.log('📊 Multi-resource query detected, fetching each type separately:', finalResourceTypes);
+          
+          for (const resourceType of finalResourceTypes) {
+            const typeSearchParams = { ...searchParams, ResourceType: [resourceType] };
+            console.log(`📊 Fetching resources for type ${resourceType}:`, typeSearchParams);
+            
+            const typeResponse = await workbookClient.resources.search(typeSearchParams);
+            if (typeResponse.success && typeResponse.data) {
+              resources.push(...typeResponse.data);
+            } else {
+              console.warn(`Failed to fetch resources for type ${resourceType}:`, typeResponse.error);
+            }
+          }
+          
+          console.log(`📊 Combined ${resources.length} resources from ${finalResourceTypes.length} types`);
+          
+        } else {
+          // Single resource type query
+          console.log('� Fetching resources with parameters:', searchParams);
+          const response = await workbookClient.resources.search(searchParams);
+        
+          if (!response.success || !response.data) {
+            throw new Error('Failed to fetch resource data');
+          }
 
-        let resources = response.data;
+          resources = response.data;
+        }
       
         // Apply post-fetch filtering
         if (!includeInactive && finalActive !== false) {
@@ -235,12 +259,30 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           console.log(`Employee filter applied: ${employeeName}, ${resources.length}/${beforeCount} resources matched`);
         }
         
-        // Enhanced data mapping
+        // Apply name filtering (e.g., "starting with A")
+        if (nameStartsWith) {
+          const beforeCount = resources.length;
+          resources = resources.filter(r => 
+            r.Name && r.Name.toUpperCase().startsWith(nameStartsWith.toUpperCase())
+          );
+          console.log(`Name filter applied: starting with "${nameStartsWith}", ${resources.length}/${beforeCount} resources matched`);
+        }
+        
+        // Enhanced data mapping and relational structuring
         if (finalIncludeResponsible || finalIncludeCompany) {
           resources = await enrichResourcesWithDetails(resources, workbookClient, {
             includeResponsibleEmployee: finalIncludeResponsible,
             includeCompanyMapping: finalIncludeCompany
           });
+        }
+        
+        // Special handling for relational exports (e.g., "clients mapped with contact persons")
+        const isRelationalExport = finalResourceTypes && finalResourceTypes.length > 1 && 
+          finalResourceTypes.includes(ResourceTypes.CLIENT) && finalResourceTypes.includes(ResourceTypes.CONTACT_PERSON);
+        
+        if (isRelationalExport) {
+          console.log('🔗 Processing client-contact relational export');
+          resources = await createClientContactRelationalExport(resources);
         }
       
         // Apply limit only if specified and greater than 0
@@ -251,7 +293,8 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         // Define intelligent field selection
         const exportFields = fields || getIntelligentFields(intelligentContext, {
           includeResponsibleEmployee: finalIncludeResponsible,
-          includeCompanyMapping: finalIncludeCompany
+          includeCompanyMapping: finalIncludeCompany,
+          isRelationalExport: isRelationalExport
         });
         
         console.log('📋 Export fields selected:', exportFields);
@@ -323,12 +366,16 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         let downloadUrl: string | undefined;
         if (saveToFile) {
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const smartFileName = generateSmartFileName(intelligentContext, resources.length, format);
           const defaultFileName = `workbook-export-${format}-${timestamp}`;
-          const actualFileName = fileName || defaultFileName;
+          const actualFileName = fileName || smartFileName || defaultFileName;
           const fileExtension = format === 'csv' ? 'csv' : 
             format === 'json' ? 'json' : 'txt';
           
-          const fullFileName = `${actualFileName}.${fileExtension}`;
+          // Check if filename already has the correct extension to avoid double extensions
+          const fullFileName = actualFileName.endsWith(`.${fileExtension}`) 
+            ? actualFileName 
+            : `${actualFileName}.${fileExtension}`;
           const fileSizeBytes = Buffer.byteLength(exportData, 'utf-8');
           fileSize = formatFileSize(fileSizeBytes);
 
@@ -528,24 +575,39 @@ function processUserQuery(query: string): {
   includeCompanyMapping?: boolean;
   exportType?: string;
   employeeName?: string;
+  nameStartsWith?: string;
 } {
   const queryLower = query.toLowerCase();
   const context: ExportContext = {};
   
-  // Detect resource types
-  if (queryLower.includes('client') && !queryLower.includes('prospect')) {
+  // Detect resource types and relationships
+  const hasClient = queryLower.includes('client');
+  const hasProspect = queryLower.includes('prospect');
+  const hasEmployee = queryLower.includes('employee');
+  const hasContact = queryLower.includes('contact');
+  const hasSupplier = queryLower.includes('supplier');
+  const hasCompany = queryLower.includes('company') || queryLower.includes('companies');
+  
+  // Detect relational queries (e.g., "clients mapped with contact persons")
+  const isMappedQuery = queryLower.includes('mapped') || queryLower.includes('with their') || queryLower.includes('and their');
+  
+  if (hasClient && hasContact && (isMappedQuery || queryLower.includes('contact'))) {
+    // "Clients mapped with contact persons" - export BOTH clients AND their contacts
+    context.resourceTypes = [ResourceTypes.CLIENT, ResourceTypes.CONTACT_PERSON];
+    context.includeCompanyMapping = true; // Link contacts to their companies
+  } else if (hasClient && !hasProspect) {
     context.resourceTypes = [ResourceTypes.CLIENT];
-    context.includeResponsibleEmployee = queryLower.includes('responsible') || queryLower.includes('employee');
-  } else if (queryLower.includes('prospect')) {
+    context.includeResponsibleEmployee = queryLower.includes('responsible') || hasEmployee;
+  } else if (hasProspect) {
     context.resourceTypes = [ResourceTypes.PROSPECT];
-  } else if (queryLower.includes('employee') && !queryLower.includes('responsible')) {
+  } else if (hasEmployee && !queryLower.includes('responsible')) {
     context.resourceTypes = [ResourceTypes.EMPLOYEE];
-  } else if (queryLower.includes('contact') && !queryLower.includes('employee')) {
+  } else if (hasContact && !hasEmployee) {
     context.resourceTypes = [ResourceTypes.CONTACT_PERSON];
     context.includeCompanyMapping = queryLower.includes('company') || queryLower.includes('mapped');
-  } else if (queryLower.includes('supplier')) {
+  } else if (hasSupplier) {
     context.resourceTypes = [ResourceTypes.SUPPLIER];
-  } else if (queryLower.includes('companies') || queryLower.includes('company')) {
+  } else if (hasCompany && !hasClient && !hasProspect) {
     // "Companies" means CLIENT companies only - prospects must be explicitly requested
     context.resourceTypes = [ResourceTypes.CLIENT];
   }
@@ -595,6 +657,13 @@ function processUserQuery(query: string): {
     context.includeCompanyMapping = true;
   }
   
+  // Detect name filtering patterns (e.g., "starting with A", "beginning with B")
+  const nameStartsWithPattern = /(?:starting with|begins? with|beginning with)\s+([A-Za-z])/i;
+  const startsWithMatch = query.match(nameStartsWithPattern);
+  if (startsWithMatch && startsWithMatch[1]) {
+    context.nameStartsWith = startsWithMatch[1].toUpperCase();
+  }
+  
   return context;
 }
 
@@ -602,8 +671,22 @@ function processUserQuery(query: string): {
 function getIntelligentFields(context: ExportContext, options: {
   includeResponsibleEmployee?: boolean;
   includeCompanyMapping?: boolean;
+  isRelationalExport?: boolean;
 }): string[] {
   const baseFields = ['Name', 'Email', 'Phone1', 'Active'];
+  
+  // For relational exports (like client-contact mapping), include composite fields
+  if (options.isRelationalExport && context.resourceTypes && 
+      context.resourceTypes.includes(ResourceTypes.CLIENT) && 
+      context.resourceTypes.includes(ResourceTypes.CONTACT_PERSON)) {
+    // Return fields for client-contact relational export including composite contact fields
+    // These composite fields are created by createClientContactRelationalExport function
+    return [
+      'Id', 'Name', 'Email', 'Phone1', 'Active', 'City', 'Country', 'Address1',
+      'ContactPersonName', 'ContactPersonEmail', 'ContactPersonPhone1', 'ContactPersonCellPhone', 
+      'ContactPersonInitials', 'ContactPersonId', 'ClientId', 'ClientName', 'ResponsibleEmployee', 'TypeId'
+    ];
+  }
   
   // Add fields based on resource type
   if (context.resourceTypes) {
@@ -787,4 +870,145 @@ function getCountryCode(countryName: string): string | null {
   
   const normalized = countryName.toLowerCase().trim();
   return countryMap[normalized] || null;
+}
+
+/**
+ * Create a relational export that properly maps clients with their contact persons
+ * Instead of just mixing both types, create client records with associated contact information
+ */
+async function createClientContactRelationalExport(
+  resources: Resource[]
+): Promise<Resource[]> {
+  console.log(`🔗 Creating client-contact relational export from ${resources.length} resources`);
+  
+  // Separate clients and contacts
+  const clients = resources.filter(r => r.TypeId === ResourceTypes.CLIENT);
+  const contacts = resources.filter(r => r.TypeId === ResourceTypes.CONTACT_PERSON);
+  
+  console.log(`📊 Found ${clients.length} clients and ${contacts.length} contacts`);
+  
+  // Create relational mapping: for each client, find associated contacts
+  const relationalRecords: Resource[] = [];
+  
+  for (const client of clients) {
+    // Find contacts associated with this client
+    const clientContacts = contacts.filter(contact => 
+      contact.ParentResourceId === client.Id || 
+      contact.ResourceFolder === client.Name ||
+      contact.ProjectName === client.Name
+    );
+    
+    if (clientContacts.length > 0) {
+      // Create records for each client-contact combination
+      for (const contact of clientContacts) {
+        const relationalRecord: EnrichedResource = {
+          ...client,
+          // Keep client data but add contact information using actual API fields
+          ContactPersonName: contact.Name || '',
+          ContactPersonEmail: contact.Email || '',
+          ContactPersonPhone1: contact.Phone1 || '',
+          ContactPersonCellPhone: contact.CellPhone || '',
+          ContactPersonInitials: contact.Initials || '',
+          ContactPersonId: contact.Id,
+          // Keep both IDs for clarity
+          ClientId: client.Id,
+          ClientName: client.Name
+        };
+        relationalRecords.push(relationalRecord);
+      }
+    } else {
+      // Client with no associated contacts - still include the client
+      const clientRecord: EnrichedResource = {
+        ...client,
+        ContactPersonName: 'No contacts found',
+        ContactPersonEmail: '',
+        ContactPersonPhone1: '',
+        ContactPersonCellPhone: '',
+        ContactPersonInitials: '',
+        ContactPersonId: 0,
+        ClientId: client.Id,
+        ClientName: client.Name
+      };
+      relationalRecords.push(clientRecord);
+    }
+  }
+  
+  console.log(`🔗 Created ${relationalRecords.length} relational records from ${clients.length} clients and ${contacts.length} contacts`);
+  return relationalRecords;
+}
+
+/**
+ * Generate intelligent filename based on export context and user query
+ */
+function generateSmartFileName(
+  context: ExportContext, 
+  recordCount: number, 
+  format: string
+): string {
+  const now = new Date();
+  const dateStamp = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const timeStamp = now.toTimeString().slice(0, 8).replace(/:/g, ''); // HHMMSS
+  const parts: string[] = [];
+  
+  // Determine content type
+  if (context.resourceTypes && context.resourceTypes.length > 0) {
+    const typeNames = context.resourceTypes.map(typeId => {
+      switch (typeId) {
+        case ResourceTypes.CLIENT: return 'clients';
+        case ResourceTypes.EMPLOYEE: return 'employees';
+        case ResourceTypes.CONTACT_PERSON: return 'contacts';
+        case ResourceTypes.PROSPECT: return 'prospects';
+        case ResourceTypes.SUPPLIER: return 'suppliers';
+        default: return `type${typeId}`;
+      }
+    });
+    
+    if (typeNames.length === 1) {
+      parts.push(typeNames[0]);
+    } else if (typeNames.includes('clients') && typeNames.includes('contacts')) {
+      parts.push('client-contact-mapping');
+    } else {
+      parts.push(typeNames.join('-'));
+    }
+  }
+  
+  // Add status filter
+  if (context.activeOnly) {
+    parts.push('active');
+  }
+  
+  // Add name filtering
+  if (context.nameStartsWith) {
+    parts.push(`starting-with-${context.nameStartsWith.toLowerCase()}`);
+  }
+  
+  // Add responsible employee context
+  if (context.includeResponsibleEmployee && context.employeeName) {
+    const cleanEmployeeName = context.employeeName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    parts.push(`managed-by-${cleanEmployeeName}`);
+  }
+  
+  // Add country filter
+  if (context.country) {
+    const cleanCountry = context.country.toLowerCase().replace(/[^a-z0-9]/g, '');
+    parts.push(cleanCountry);
+  }
+  
+  // Add record count for clarity
+  parts.push(`${recordCount}-records`);
+  
+  // Add timestamp with exact time to prevent overwrites
+  parts.push(`${dateStamp}-${timeStamp}`);
+  
+  // Join parts and clean up
+  let fileName = parts.join('-');
+  
+  // Clean up filename - remove invalid characters, limit length
+  fileName = fileName
+    .replace(/[^a-z0-9\-]/gi, '')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 120); // Slightly increased limit for time component
+  
+  return fileName || `export-${dateStamp}-${timeStamp}`;
 }

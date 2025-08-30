@@ -10,13 +10,22 @@ import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.
 export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'advanced-filter',
-    description: `Advanced filtering of Workbook CRM resources with multiple criteria. Use this tool when users ask to:
-        - Filter by multiple criteria (type, status, location, contact count)
-        - Find resources matching complex conditions
-        - Get filtered lists with specific requirements
-        - Apply business rules to resource searches
-        
-        Supports filtering by resource type, active status, email domain, company location, responsible employee, and contact counts.`,
+    description: `🔍 ADVANCED MULTI-CRITERIA FILTERING - Use ONLY for complex filtering with multiple conditions.
+
+  DO NOT use for simple searches:
+  ❌ "Show me all clients" → Use companySearchTool
+  ❌ "Find ADECCO" → Use companySearchTool  
+  ❌ "Companies in Copenhagen" → Use geographicAnalysisTool
+  ❌ "List employees" → Use searchContactsTool
+  
+  ONLY use for complex multi-criteria filtering:
+  ✅ "Active clients with >5 contacts AND missing emails"
+  ✅ "Suppliers with gmail.com domain managed by admin"
+  ✅ "Danish clients with 0-2 contacts that are active"
+  ✅ "Resources matching multiple business rules"
+  
+  Requires MULTIPLE filter conditions. For simple searches, use specialized tools.
+  Supports filtering by type, status, email domain, location, responsible employee, contact counts.`,
         
     inputSchema: z.object({
       resourceType: z.array(z.number())

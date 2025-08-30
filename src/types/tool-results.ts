@@ -68,6 +68,7 @@ export interface ExportContext {
   exportType?: string;
   country?: string;
   employeeName?: string;
+  nameStartsWith?: string;
   format?: string;
 }
 
