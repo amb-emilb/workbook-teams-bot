@@ -32,13 +32,14 @@ export const PersonTypes = [
   ResourceTypes.CONTACT_PERSON
 ]; // 62 + 1,250 = 1,312 people
 
+// Customer Companies (excludes our own company to avoid confusion)
+// When users ask for "companies" they mean CLIENT companies only
+// Prospects and suppliers must be explicitly requested
 export const AllCompanyTypes = [
-  ResourceTypes.COMPANY,
-  ResourceTypes.CLIENT,
-  ResourceTypes.PROSPECT
-] as const; // 1 + 780 + 802 = 1,583 total companies
+  ResourceTypes.CLIENT
+] as const; // 780 client companies (excludes prospects, suppliers, and our own company)
 
-// Helper function for type-safe checking
-export function isCompanyType(typeId: number | undefined): typeId is 1 | 3 | 6 {
-  return typeId !== undefined && AllCompanyTypes.includes(typeId as 1 | 3 | 6);
+// Helper function for type-safe checking (companies = clients only)
+export function isCompanyType(typeId: number | undefined): typeId is 3 {
+  return typeId !== undefined && AllCompanyTypes.includes(typeId as 3);
 }

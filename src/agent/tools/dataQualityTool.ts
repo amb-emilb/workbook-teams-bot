@@ -25,7 +25,7 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
         .describe('Type of analysis: overview (summary), detailed (full report), issues-only (problems only)'),
       resourceType: z.array(z.number())
         .optional()
-        .describe('Resource types to analyze: [1=Companies, 2=Employees, 3=Clients]. Leave empty for all types.'),
+        .describe('Resource types to analyze: [2=Employees, 3=Clients, 4=Suppliers, 6=Prospects]. Leave empty for all types.'),
       includeRecommendations: z.boolean()
         .default(true)
         .describe('Whether to include improvement recommendations'),
@@ -128,8 +128,7 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
             })),
           
           orphanedRecords: resources
-            .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
-                         r.TypeId === ResourceTypes.CLIENT || 
+            .filter(r => (r.TypeId === ResourceTypes.CLIENT || 
                          r.TypeId === ResourceTypes.PROSPECT) && !r.ResponsibleResourceId)
             .map(r => ({
               id: r.Id,

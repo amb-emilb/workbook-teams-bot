@@ -12,11 +12,12 @@ import { Resource, Contact } from '../../types/workbook.types.js';
 export function createCompanySearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-company-by-name',
-    description: `🏢 PRIMARY tool for CLIENT COMPANIES, business entities, and LOCATION searches.
+    description: `🏢 PRIMARY tool for COMPANIES (clients, suppliers, prospects), business entities, and LOCATION searches.
 
   Use this tool for:
   ✅ "Show me all active clients"
   ✅ "List client companies" 
+  ✅ "Show all suppliers"
   ✅ "Find companies in Copenhagen/Denmark"
   ✅ "Show Danish clients"
   ✅ "ADECCO company details"
@@ -26,7 +27,7 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
   Handles both search AND display for companies.
   Supports geographic filtering for location-based queries.
   
-  IMPORTANT: Use this for CLIENT COMPANIES (TypeId 3), not individual people.
+  IMPORTANT: Use this for COMPANIES (TypeId 3=Clients, 4=Suppliers, 6=Prospects), not individual people.
   For employees or contact persons, use searchContactsTool.
   For data exports, use enhancedExportTool.
   For complex analysis, use geographicAnalysisTool.`,
@@ -322,7 +323,7 @@ async function searchClientsByEmployee(workbookClient: WorkbookClient, employeeN
     const employeeClients = companiesResponse.data.filter((client: Resource) => 
       client.ResponsibleResourceId === employeeId && 
       client.Active && 
-      (client.TypeId === ResourceTypes.CLIENT || client.TypeId === ResourceTypes.PROSPECT)
+      (client.TypeId === ResourceTypes.CLIENT || client.TypeId === ResourceTypes.SUPPLIER || client.TypeId === ResourceTypes.PROSPECT)
     );
       
     // Enrich with hierarchy if requested

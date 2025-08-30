@@ -126,17 +126,18 @@
   - Company/contact detail buttons completely non-functional
   - Need proper Action.Submit handling in Teams bot
 
-##### **3. Conversation Context Loss**
-- [ ] **Fix Agent Memory & Context** - Agent loses conversation thread
-  - "Do all clients have contact persons?" → "Not all clients..." → User: "yes" → Random Copenhagen response
-  - Context sometimes not maintained between messages
-  - Follow-up questions generate unrelated responses
+##### **3. Conversation Context Loss** ✅ **COMPLETED (2025-08-29)**
+- [x] **Fix Agent Memory & Context** - Agent loses conversation thread
+  - Fixed: "Do all clients have contact persons?" → "Not all clients..." → User: "yes" → Proper detailed report
+  - Context now maintained between messages using workbookContext.lastQuery
+  - Follow-up questions enhanced with previous context before sending to agent
 
-##### **4. Export System Breakdown** 
-- [ ] **Fix enhancedExportTool Logic** - Wrong CSV files generated (29% success rate)
-  - Query: "Clients managed by Jeppe" → Gets unrelated CSV
-  - Export requests generate wrong data sets
-  - Tool parameters not correctly interpreted
+##### **4. Export System Breakdown** ✅ **COMPLETED (2025-08-29)**
+- [x] **Fix enhancedExportTool Logic** - Wrong CSV files generated (29% success rate)
+  - Fixed: "Clients managed by Jeppe" → Now returns correct filtered CSV
+  - Added employee name lookup functionality with pattern detection
+  - Fixed resource type confusion by removing COMPANY from customer queries
+  - Tool parameters now correctly interpreted with employee filtering
 
 ##### **5. Tool Success Rate Crisis**
 - [ ] **Fix universalSearchTool** - 0% success rate (5/5 failures)
@@ -189,11 +190,11 @@
 - [ ] Test all interactive card scenarios
 - [ ] Implement proper response handling for card actions
 
-##### **Phase 16C: Context & Memory System**
-- [ ] Audit conversation memory persistence
-- [ ] Fix follow-up question context retention
-- [ ] Test multi-turn conversation scenarios
-- [ ] Implement proper context passing between messages
+##### **Phase 16C: Context & Memory System** ✅ **COMPLETED (2025-08-29)**
+- [x] Audit conversation memory persistence
+- [x] Fix follow-up question context retention
+- [x] Test multi-turn conversation scenarios
+- [x] Implement proper context passing between messages
 
 ##### **Phase 16D: Export & Data Generation**
 - [ ] Audit enhancedExportTool parameter interpretation

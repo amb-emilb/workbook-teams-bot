@@ -82,7 +82,7 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
           analysisMode = 'summary'
         } = context;
       
-        console.log('Š Starting portfolio analysis...');
+        console.log('ï¿½ Starting portfolio analysis...');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
@@ -118,10 +118,10 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
           );
         }
       
-        // Identify all clients (TypeId 1, 3, or 6 - Company, Client, Prospect)
+        // Identify all clients (TypeId 3, 4, or 6 - Client, Supplier, Prospect)
         let allClients = allResources.filter(r => 
-          r.TypeId === ResourceTypes.COMPANY || 
           r.TypeId === ResourceTypes.CLIENT || 
+          r.TypeId === ResourceTypes.SUPPLIER ||
           r.TypeId === ResourceTypes.PROSPECT
         );
       

@@ -21,7 +21,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
     inputSchema: z.object({
       resourceType: z.array(z.number())
         .optional()
-        .describe('Resource types: 1=Company, 2=Employee, 3=Client, 4=Supplier, 6=Prospect, 10=Contact Person. For "companies" use [1,3,6]. Leave empty for all types.'),
+        .describe('Resource types: 2=Employee, 3=Client, 4=Supplier, 6=Prospect, 10=Contact Person. For "companies" use [3,4,6] (clients, suppliers, prospects). Leave empty for all types.'),
       active: z.boolean()
         .optional()
         .describe('Filter by active status. True=active only, False=inactive only, undefined=both'),
@@ -81,7 +81,7 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
           limit = 0 
         } = context;
       
-        console.log(' Starting advanced filter search...');
+        console.log('ï¿½ Starting advanced filter search...');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
@@ -155,13 +155,13 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
         let resourcesWithContactCounts: (typeof filteredResources[0] & { contactCount: number })[] = [];
       
         if (needsContactCounts) {
-          console.log('Š Calculating contact counts for filtering...');
+          console.log('ï¿½ Calculating contact counts for filtering...');
         
-          // Filter to companies first for efficiency
+          // Filter to customer companies first for efficiency (excludes our own company)
           const companies = filteredResources.filter(r => 
-            r.TypeId === ResourceTypes.COMPANY || 
             r.TypeId === ResourceTypes.CLIENT || 
-            r.TypeId === ResourceTypes.PROSPECT
+            r.TypeId === ResourceTypes.PROSPECT ||
+            r.TypeId === ResourceTypes.SUPPLIER
           );
         
           // Get contact counts for each company
@@ -211,9 +211,9 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
             let contactCount: number | undefined;
             if (needsContactCounts) {
               contactCount = 'contactCount' in resource ? (resource as typeof filteredResources[0] & { contactCount: number }).contactCount : undefined;
-            } else if (resource.TypeId === ResourceTypes.COMPANY || 
-                      resource.TypeId === ResourceTypes.CLIENT || 
-                      resource.TypeId === ResourceTypes.PROSPECT) {
+            } else if (resource.TypeId === ResourceTypes.CLIENT || 
+                      resource.TypeId === ResourceTypes.PROSPECT ||
+                      resource.TypeId === ResourceTypes.SUPPLIER) {
               const contactsResponse = await workbookClient.resources.getContactsForResource(resource.Id);
               contactCount = contactsResponse.success ? (contactsResponse.data?.length || 0) : 0;
             }

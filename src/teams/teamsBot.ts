@@ -247,6 +247,39 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
 
     console.log('Input validated and sanitized');
 
+    // FOLLOW-UP QUERY DETECTION & CONTEXT ENHANCEMENT
+    // Detect if this is a follow-up query that needs context from the previous interaction
+    const isFollowUpQuery = queryValidation.sanitized.toLowerCase().match(/^(yes|yeah|yep|no|nope|show me|tell me more|details|continue|more info|more|list|report|export|download)$/i);
+    let enhancedMessage = queryValidation.sanitized;
+    
+    if (isFollowUpQuery && state.workbookContext?.lastQuery) {
+      const followupTerm = queryValidation.sanitized.toLowerCase();
+      console.log('[FOLLOW-UP DETECTED]', {
+        followupTerm,
+        lastQuery: state.workbookContext.lastQuery.substring(0, 100),
+        enhancementNeeded: true
+      });
+      
+      // Enhance the message with context based on the follow-up type
+      if (followupTerm.match(/^(yes|yeah|yep)$/i)) {
+        enhancedMessage = `Yes, please provide a detailed report based on my previous question: "${state.workbookContext.lastQuery}"`;
+      } else if (followupTerm.match(/^(no|nope)$/i)) {
+        enhancedMessage = `No, I don't need that. For my previous question "${state.workbookContext.lastQuery}", please show me something different or provide an alternative.`;
+      } else if (followupTerm.match(/^(show me|tell me more|details|more info|more)$/i)) {
+        enhancedMessage = `Please provide more details about my previous question: "${state.workbookContext.lastQuery}"`;
+      } else if (followupTerm.match(/^(list|report|export|download)$/i)) {
+        enhancedMessage = `Please provide a ${followupTerm} for my previous question: "${state.workbookContext.lastQuery}"`;
+      } else if (followupTerm.match(/^(continue)$/i)) {
+        enhancedMessage = `Continue with my previous question: "${state.workbookContext.lastQuery}"`;
+      }
+      
+      console.log('[CONTEXT ENHANCEMENT]', {
+        original: queryValidation.sanitized,
+        enhanced: enhancedMessage.substring(0, 150) + '...',
+        contextSource: 'workbookContext.lastQuery'
+      });
+    }
+
     // Get Teams context for Mastra memory system
     const threadId = context.activity.conversation?.id || 'default-thread';
     const resourceId = context.activity.from?.id || 'default-user';
@@ -269,7 +302,9 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       threadId: threadId.substring(0, 20) + '...',
       resourceId: resourceId.substring(0, 20) + '...',
       userName: userName,
-      message: queryValidation.sanitized.substring(0, 50) + '...'
+      originalMessage: queryValidation.sanitized.substring(0, 50) + '...',
+      enhancedMessage: enhancedMessage.substring(0, 50) + '...',
+      isEnhanced: enhancedMessage !== queryValidation.sanitized
     });
 
     // Test memory persistence before executing
@@ -277,8 +312,8 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     
     // Execute our existing Mastra agent with native memory system
     // User context is maintained through threadId and resourceId, not in the message
-    // The clean message allows the agent to properly parse and execute tool calls
-    const response = await cachedWorkbookAgent.generate(queryValidation.sanitized, {
+    // Use enhanced message for follow-ups, or original sanitized message for regular queries
+    const response = await cachedWorkbookAgent.generate(enhancedMessage, {
       threadId,
       resourceId
     });

@@ -67,6 +67,7 @@ export interface ExportContext {
   activeOnly?: boolean;
   exportType?: string;
   country?: string;
+  employeeName?: string;
   format?: string;
 }
 

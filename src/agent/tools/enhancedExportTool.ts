@@ -166,6 +166,35 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         const finalActive = active !== undefined ? active : intelligentContext.activeOnly;
         const finalIncludeResponsible = includeResponsibleEmployee || intelligentContext.includeResponsibleEmployee;
         const finalIncludeCompany = includeCompanyMapping || intelligentContext.includeCompanyMapping;
+        const employeeName = intelligentContext.employeeName;
+
+        // Handle employee name lookup if specified (e.g., "Clients managed by Jeppe")
+        let responsibleEmployeeIds: number[] | undefined;
+        if (employeeName) {
+          console.log(`🔍 Looking up employee: "${employeeName}"`);
+          try {
+            // Step 1: Find employee by name using general search
+            const employeeSearchResponse = await workbookClient.resources.search({ NameContains: employeeName });
+            if (employeeSearchResponse.success && employeeSearchResponse.data) {
+              const matchingEmployees = employeeSearchResponse.data.filter((emp: Resource) => 
+                emp.TypeId === ResourceTypes.EMPLOYEE && 
+                (emp.Name?.toLowerCase().includes(employeeName.toLowerCase()) ||
+                 emp.Initials?.toLowerCase().includes(employeeName.toLowerCase()))
+              );
+              
+              if (matchingEmployees.length > 0) {
+                responsibleEmployeeIds = matchingEmployees.map(emp => emp.Id);
+                console.log(`👥 Found ${matchingEmployees.length} matching employees:`, matchingEmployees.map(e => e.Name));
+              } else {
+                console.log(`⚠️ No employees found matching "${employeeName}"`);
+                // Continue with export but it will return empty results
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Error looking up employee "${employeeName}":`, error);
+            // Continue with export but without employee filtering
+          }
+        }
       
         if (finalResourceTypes) {searchParams.ResourceType = finalResourceTypes;}
         if (finalActive !== undefined) {searchParams.Active = finalActive;}
@@ -195,6 +224,15 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
               r.Country.toLowerCase().includes(finalCountry.toLowerCase()))
           );
           console.log(`Geographic filter applied: ${finalCountry} (${countryCode || 'text match'}), ${resources.length} resources remain`);
+        }
+        
+        // Apply employee-based filtering (e.g., "Clients managed by Jeppe")
+        if (responsibleEmployeeIds && responsibleEmployeeIds.length > 0) {
+          const beforeCount = resources.length;
+          resources = resources.filter(r => 
+            r.ResponsibleResourceId && responsibleEmployeeIds.includes(r.ResponsibleResourceId)
+          );
+          console.log(`Employee filter applied: ${employeeName}, ${resources.length}/${beforeCount} resources matched`);
         }
         
         // Enhanced data mapping
@@ -232,9 +270,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
           ).size,
           uniqueCompanies: new Set(
             resources
-              .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
-                           r.TypeId === ResourceTypes.CLIENT || 
-                           r.TypeId === ResourceTypes.PROSPECT) && r.ResourceFolder)
+              .filter(r => r.TypeId === ResourceTypes.CLIENT && r.ResourceFolder)
               .map(r => r.ResourceFolder)
           ).size,
           uniqueDepartments: new Set(
@@ -491,6 +527,7 @@ function processUserQuery(query: string): {
   includeResponsibleEmployee?: boolean;
   includeCompanyMapping?: boolean;
   exportType?: string;
+  employeeName?: string;
 } {
   const queryLower = query.toLowerCase();
   const context: ExportContext = {};
@@ -509,7 +546,24 @@ function processUserQuery(query: string): {
   } else if (queryLower.includes('supplier')) {
     context.resourceTypes = [ResourceTypes.SUPPLIER];
   } else if (queryLower.includes('companies') || queryLower.includes('company')) {
-    context.resourceTypes = [ResourceTypes.COMPANY, ResourceTypes.CLIENT, ResourceTypes.PROSPECT];
+    // "Companies" means CLIENT companies only - prospects must be explicitly requested
+    context.resourceTypes = [ResourceTypes.CLIENT];
+  }
+  
+  // Detect employee name patterns (e.g., "managed by Jeppe", "clients of John", "handled by Sarah")
+  const employeePatterns = [
+    /(?:managed by|clients of|handled by|responsible employee|employee)\s+([a-zA-ZæøåÆØÅ]+)/i,
+    /([a-zA-ZæøåÆØÅ]+)(?:'s clients|'s companies|'s prospects)/i,
+    /clients managed by\s+([a-zA-ZæøåÆØÅ]+)/i
+  ];
+  
+  for (const pattern of employeePatterns) {
+    const match = query.match(pattern);
+    if (match && match[1]) {
+      context.employeeName = match[1].trim();
+      context.includeResponsibleEmployee = true; // We need to include employee details for filtering
+      break;
+    }
   }
   
   // Detect geographic filters

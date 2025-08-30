@@ -85,7 +85,7 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           includeInactive = false
         } = context;
       
-        console.log('�️ Starting relationship mapping...');
+        console.log('�️ Starting relationship mapping...');
       
         // Determine which companies to map
         let targetCompanies: Resource[] = [];
@@ -107,8 +107,8 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
           if (allResourcesResponse.success && allResourcesResponse.data) {
             targetCompanies = allResourcesResponse.data
-              .filter(r => (r.TypeId === ResourceTypes.COMPANY || 
-                           r.TypeId === ResourceTypes.CLIENT || 
+              .filter(r => (r.TypeId === ResourceTypes.CLIENT || 
+                           r.TypeId === ResourceTypes.SUPPLIER ||
                            r.TypeId === ResourceTypes.PROSPECT) && r.ResponsibleResourceId)
               .slice(0, 10); // Limit to 10 for performance
           }
@@ -140,8 +140,8 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           
           const directChildren = allResourcesResponse.data.filter(r => 
             r.ParentResourceId === parentId && 
-            (r.TypeId === ResourceTypes.COMPANY || 
-             r.TypeId === ResourceTypes.CLIENT || 
+            (r.TypeId === ResourceTypes.CLIENT || 
+             r.TypeId === ResourceTypes.SUPPLIER ||
              r.TypeId === ResourceTypes.PROSPECT) // Companies only
           );
           
@@ -191,8 +191,8 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
               ?.filter(r => 
                 r.ResponsibleResourceId === company.ResponsibleResourceId &&
               r.Id !== company.Id &&
-              (r.TypeId === ResourceTypes.COMPANY || 
-               r.TypeId === ResourceTypes.CLIENT || 
+              (r.TypeId === ResourceTypes.CLIENT || 
+               r.TypeId === ResourceTypes.SUPPLIER ||
                r.TypeId === ResourceTypes.PROSPECT) &&
               r.Active // Only show active clients in portfolio
               )
