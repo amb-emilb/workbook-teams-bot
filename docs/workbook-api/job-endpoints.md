@@ -462,3 +462,269 @@ strict-origin-when-cross-origin
     }
 ]
 
+8. JobCreateRequest
+
+# Request Payload
+
+{CompanyId: 1, ContactResourceId: null, ProjectId: 797, PriceListId: 1, TeamId: 1,…}
+AccountManagerResourceId
+: 
+27
+Chargeable
+: 
+true
+CompanyId
+: 
+1
+ContactResourceId
+: 
+null
+CostingCodeId
+: 
+null
+DebtorId
+: 
+null
+DeliveryDate
+: 
+"2025-10-30T22:26:34.641Z"
+FolderIds
+: 
+[]
+JobFolder
+: 
+"Tester23"
+JobId
+: 
+null
+JobManagerResourceId
+: 
+53
+JobStatusId
+: 
+"1"
+MandatoryDimensions
+: 
+{1: "1", 14: "6"}
+1
+: 
+"1"
+14
+: 
+"6"
+Name
+: 
+"Tester23"
+PriceListId
+: 
+1
+ProjectId
+: 
+797
+StartDate
+: 
+"2025-08-31T00:00:00.000Z"
+TeamId
+: 
+1
+TimeRegistrationAllowed
+: 
+1
+
+# Headers
+
+Request URL
+https://ambitiondemo.workbook.net/api/json/reply/JobCreateRequest
+Request Method
+PUT
+Status Code
+200 OK
+Remote Address
+52.164.255.111:443
+Referrer Policy
+strict-origin-when-cross-origin
+
+# Response
+
+{"JobId":11233}
+
+9. JobPatchRequest
+
+# Headers
+
+Request URL
+https://ambitiondemo.workbook.net/api/json/reply/JobPatchRequest
+Request Method
+PATCH
+Status Code
+200 OK
+Remote Address
+52.164.255.111:443
+Referrer Policy
+strict-origin-when-cross-origin
+
+# Payload
+
+{Patch: {Id: 11233}}
+Patch
+: 
+{Id: 11233}
+Id
+: 
+11233
+
+
+# Response
+
+{
+    "JobID": 11233,
+    "Id": 11233,
+    "JobName": "Tester23",
+    "ProjectId": 797,
+    "StatusId": 1,
+    "JobTypeId": 3,
+    "LeveringsDato": "2025-10-30T22:26:34.640Z",
+    "EndDate": "2025-10-30T22:26:34.640Z",
+    "ResponsibleId": 53,
+    "CompanyId": 1,
+    "TeamId": 1,
+    "Public": true,
+    "CreateDate": "2025-08-31T21:27:37.573Z",
+    "Billable": true,
+    "CompletePhase": 0,
+    "JobTaskActive": true,
+    "JobTaskUseAllDays": false,
+    "JobResponsibleId": 27,
+    "TimeEntryAllowed": 1,
+    "FolderExtra": " Tester23",
+    "FolderArchived": false,
+    "ProductId": 6,
+    "StartDate": "2025-08-31T00:00:00.000Z",
+    "AdminOnly": false,
+    "JournalNumber": 0,
+    "TemplateJob": false,
+    "SupplementaryTextRequested": true,
+    "CompanyDepartmentId": 1,
+    "ExpAccMtd": 1,
+    "CreateEmployeeId": 53,
+    "PostMethodTime": 2,
+    "PostMethodMat": 2,
+    "PostMethodExt": 2,
+    "IsMediaJob": false,
+    "FlexTimeRegDisabled": false,
+    "Dim1": 1,
+    "PostSpecId": 2,
+    "VoucherRegistrationAllowed": true,
+    "MaterialRegAllowed": true,
+    "RetainerJob": false,
+    "JobAccessType": 1,
+    "EmployeeAccessType": 0,
+    "ExternalUserAccessType": 0,
+    "PricelistID": 1,
+    "SubsistenceAllowanceAllowed": true,
+    "MileageEntryAllowed": true,
+    "BillingExternalExpenseType": 1,
+    "BillingMileageType": 1,
+    "BillingTimeEntryTravelTimeType": 1,
+    "ExpenseEntryAllowed": true,
+    "MatGrpID": 1,
+    "SupportTicketEnable": false,
+    "AdjustmentHandlingTime": 0,
+    "AdjustmentHandlingMat": 0,
+    "AdjustmentHandlingExtExp": 0,
+    "AdjustmentHandlingExtExpCost": 0,
+    "AdjustmentHandlingExtraDiscount": 0,
+    "PurchaseOrderAllowed": true,
+    "ProjectRetainerMasterJob": false,
+    "ProjectRetainerDeliveryJob": false,
+    "CapitalizeSalesInvoice": false,
+    "TimeAndMaterial": false,
+    "PayWhenPaid": false
+}
+
+10. ETCResourceByJobIdVisualizationRequest[]
+
+# Headers
+
+Request URL
+https://ambitiondemo.workbook.net/api/json/reply/ETCResourceByJobIdVisualizationRequest[]
+Request Method
+POST
+Status Code
+200 OK
+Remote Address
+52.164.255.111:443
+Referrer Policy
+strict-origin-when-cross-origin
+
+# Payload
+
+[{Id: 11233}]
+0
+: 
+{Id: 11233}
+Id
+: 
+11233
+
+# Response
+
+[
+    {
+        "Id": 11233,
+        "JobId": 11233,
+        "Hours": 0,
+        "HoursAmount": 0,
+        "HoursNotBooked": 0,
+        "HoursNotBookedAmount": 0
+    }
+]
+
+12. JobSimpleVisualizationRequest[]
+
+# Headers
+
+Request URL
+https://ambitiondemo.workbook.net/api/json/reply/JobSimpleVisualizationRequest[]
+Request Method
+POST
+Status Code
+200 OK
+Remote Address
+52.164.255.111:443
+Referrer Policy
+strict-origin-when-cross-origin
+
+# Payload
+
+[{Id: 11233}]
+0
+: 
+{Id: 11233}
+Id
+: 
+11233
+
+# Response
+
+[
+    {
+        "Id": 11233,
+        "JobId": 11233,
+        "JobName": "Tester23",
+        "CustomerId": 3811,
+        "CustomerName": "ADECCO",
+        "Billable": true,
+        "ProjectId": 797,
+        "StatusId": 1,
+        "CompanyId": 1,
+        "EndDate": "2025-10-30T22:26:34.640Z",
+        "StartDate": "2025-08-31T00:00:00.000Z",
+        "JobTypeId": 3,
+        "JobRessAnsvarID": 27,
+        "ResponsibleId": 53,
+        "ProstatusId": 0,
+        "CompanyDepartmentId": 1,
+        "CostingCodeId": 0
+    }
+]

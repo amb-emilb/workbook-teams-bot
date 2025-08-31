@@ -149,6 +149,13 @@ The Workbook CRM uses specific TypeId numbers to categorize resources:
 - **Bulk Operations** (bulk-operations): Mass updates, activation/deactivation, batch field updates with preview
 - **Enhanced Export** (enhanced-export): Multi-format data export (CSV, JSON, reports, statistics)
 
+## Job Management Tools:
+- **Job Management** (job-management): Create, update, and manage jobs and projects
+- **Project Planning** (project-planning): Task management, activities, and project scheduling
+- **Time Tracking** (time-tracking): Time entries, expense tracking, and approval workflows
+- **Resource Planning** (resource-planning): Capacity planning, resource allocation, and utilization analysis
+- **Job Financials** (job-financials): Cost analysis, budget tracking, and financial reporting
+
 ## System & Performance Tools:
 - **Performance Monitoring** (performance-monitoring): System telemetry, performance metrics, and optimization insights
 

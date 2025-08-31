@@ -1,6 +1,7 @@
 import NodeCache from 'node-cache';
 import { WorkbookConfig } from '../types/workbook.types.js';
 import { ResourceService } from './domains/resourceService.js';
+import { JobService } from './domains/jobService.js';
 import { cacheManager } from './base/cache.js';
 import { keyVaultService } from './keyVault.js';
 
@@ -10,6 +11,7 @@ import { keyVaultService } from './keyVault.js';
  */
 export class WorkbookClient {
   public readonly resources: ResourceService;
+  public readonly jobs: JobService;
 
   private config: WorkbookConfig;
 
@@ -18,6 +20,7 @@ export class WorkbookClient {
     
     // Initialize domain services
     this.resources = new ResourceService(config);
+    this.jobs = new JobService(config);
   }
 
   /**
@@ -58,9 +61,9 @@ export class WorkbookClient {
     const isProduction = process.env.NODE_ENV === 'production' || !!process.env.WEBSITE_INSTANCE_ID;
     const environment = isProduction ? 'PRODUCTION' : 'LOCAL';
 
-    console.log(' Loading Workbook configuration from Key Vault');
+    console.log('ï¿½ Loading Workbook configuration from Key Vault');
     console.log(`ðŸ“ Running in ${environment} environment`);
-    console.log('¯ Using DEV Workbook API for both environments (as requested)');
+    console.log('ï¿½ Using DEV Workbook API for both environments (as requested)');
 
     try {
       // ALWAYS use DEV Workbook credentials regardless of environment
@@ -110,7 +113,7 @@ export class WorkbookClient {
    */
   clearAllCaches(): void {
     cacheManager.flush();
-    console.log('¹ All caches cleared');
+    console.log('ï¿½ All caches cleared');
   }
 
   /**
@@ -120,6 +123,7 @@ export class WorkbookClient {
     status: 'healthy' | 'unhealthy';
     services: {
       resources: boolean;
+      jobs: boolean;
     };
     cache: {
       keys: number;
@@ -132,13 +136,14 @@ export class WorkbookClient {
   }> {
     const results: {
       status: 'healthy' | 'unhealthy';
-      services: { resources: boolean; };
+      services: { resources: boolean; jobs: boolean; };
       cache: { keys: number; stats: NodeCache.Stats; };
       config: { environment: string; baseUrl: string; };
     } = {
       status: 'healthy',
       services: {
-        resources: false
+        resources: false,
+        jobs: false
       },
       cache: {
         keys: cacheManager.getKeys().length,
@@ -158,8 +163,16 @@ export class WorkbookClient {
       results.services.resources = false;
     }
 
+    // Test jobs service
+    try {
+      const activitiesResponse = await this.jobs.getActivities();
+      results.services.jobs = activitiesResponse.success;
+    } catch {
+      results.services.jobs = false;
+    }
+
     // Overall health
-    if (!results.services.resources) {
+    if (!results.services.resources || !results.services.jobs) {
       results.status = 'unhealthy';
     }
 

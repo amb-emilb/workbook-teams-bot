@@ -16,7 +16,9 @@
       "Bash(find:*)",
       "Bash(npm run lint)",
       "Bash(npm run test:agent:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": [
       "Bash(rm -rf /)",

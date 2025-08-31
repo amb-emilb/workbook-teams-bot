@@ -17,7 +17,7 @@ async function initializeTools() {
     return allTools;
   }
 
-  console.log('§ Initializing all tools with Key Vault...');
+  console.log('ï¿½ Initializing all tools with Key Vault...');
   
   // Initialize WorkbookClient from Key Vault
   workbookClient = await WorkbookClient.fromKeyVault();
@@ -35,7 +35,12 @@ async function initializeTools() {
     { createRelationshipMappingTool },
     { createEnhancedExportTool },
     { createGeographicAnalysisTool },
-    { createPerformanceMonitoringTool }
+    { createPerformanceMonitoringTool },
+    { createJobManagementTool },
+    { createProjectPlanningTool },
+    { createTimeTrackingTool },
+    { createResourcePlanningTool },
+    { createJobFinancialsTool }
   ] = await Promise.all([
     import('./searchTool.js'),
     import('./hierarchicalSearchTool.js'),
@@ -48,7 +53,12 @@ async function initializeTools() {
     import('./relationshipMappingTool.js'),
     import('./enhancedExportTool.js'),
     import('./geographicAnalysisTool.js'),
-    import('./performanceMonitoringTool.js')
+    import('./performanceMonitoringTool.js'),
+    import('./jobManagementTool.js'),
+    import('./projectPlanningTool.js'),
+    import('./timeTrackingTool.js'),
+    import('./resourcePlanningTool.js'),
+    import('./jobFinancialsTool.js')
   ]);
 
   // Initialize all tools with the shared WorkbookClient
@@ -72,7 +82,14 @@ async function initializeTools() {
     performanceMonitoringTool: createPerformanceMonitoringTool(workbookClient),
     
     // Statistics
-    getContactStatsTool: createGetContactStatsTool(workbookClient)
+    getContactStatsTool: createGetContactStatsTool(workbookClient),
+    
+    // Job Management tools
+    jobManagementTool: createJobManagementTool(workbookClient),
+    projectPlanningTool: createProjectPlanningTool(workbookClient),
+    timeTrackingTool: createTimeTrackingTool(workbookClient),
+    resourcePlanningTool: createResourcePlanningTool(workbookClient),
+    jobFinancialsTool: createJobFinancialsTool(workbookClient)
   };
 
   toolsInitialized = true;
