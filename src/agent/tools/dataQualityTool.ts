@@ -10,12 +10,14 @@ import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.
 export function createDataQualityTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'data-quality-analysis',
-    description: `Analyze data quality in the Workbook CRM system. Use this tool when users ask to:
+    description: `Analyze DATA QUALITY issues in the Workbook CRM system. Use this tool when users ask to:
   - Check data completeness and quality
-  - Find missing or incomplete information
+  - Find missing or incomplete information (missing emails, names)
   - Identify duplicate records
   - Get data health recommendations
   - Analyze data integrity issues
+  
+  ❌ DO NOT use for resource counts, statistics, or active/inactive breakdowns - use getContactStatsTool instead.
   
   Provides comprehensive analysis of missing emails, incomplete profiles, duplicates, and orphaned records.`,
   

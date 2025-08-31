@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { WorkbookClient, HierarchicalResource, Resource } from '../../services/index.js';
+import { WorkbookClient, RelationshipService } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
 
 /**
@@ -10,14 +10,22 @@ import { ResourceTypes } from '../../constants/resourceTypes.js';
 export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'relationship-mapping',
-    description: `Map and visualize relationships between companies, contacts, and employees in Workbook CRM. Use this tool to:
-  - View company hierarchical structures
-  - See contact-company relationships
-  - Identify responsible employees
-  - Generate ASCII tree visualizations
-  - Analyze connection strength
+    description: `RELATIONSHIP MAPPING TOOL - Use this tool specifically for visualizing and mapping relationships between entities.
+
+  PRIMARY USE CASES:
+  - Generate relationship trees and hierarchical visualizations (ASCII format)
+  - Map networks between clients, contacts, and employees
+  - Visualize employee-to-company responsibility mappings
+  - Show comprehensive relationship structures with depth analysis
+  - Create connection strength analysis and relationship diagrams
   
-  Provides comprehensive relationship mapping with visual representations.`,
+  DO NOT USE for:
+  - Simple company searches or data retrieval (use companySearchTool instead)
+  - Basic contact lookups (use searchContactsTool instead)
+  - Data exports or file generation (use enhancedExportTool instead)
+  - Geographic analysis (use geographicAnalysisTool instead)
+  
+  This tool focuses on relationship visualization and mapping, not basic data retrieval.`,
   
     inputSchema: z.object({
       companyId: z.number()
@@ -85,41 +93,38 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           includeInactive = false
         } = context;
       
-        console.log('�️ Starting relationship mapping...');
+        console.log('🗺️ Starting relationship mapping...');
       
-        // Determine which companies to map
-        let targetCompanies: Resource[] = [];
+        // Initialize relationship service
+        const relationshipService = new RelationshipService(workbookClient);
+        
+        // Determine target companies for mapping
+        let targetCompanyIds: number[] = [];
       
         if (companyId) {
-        // Get specific company by ID
-          const companyResponse = await workbookClient.resources.getById(companyId);
-          if (companyResponse.success && companyResponse.data) {
-            targetCompanies = [companyResponse.data];
-          }
+          // Get specific company by ID
+          targetCompanyIds = [companyId];
         } else if (companyName) {
-        // Search for company by name
+          // Search for company by name
           const searchResponse = await workbookClient.resources.findCompaniesByName(companyName);
           if (searchResponse.success && searchResponse.data) {
-            targetCompanies = searchResponse.data.slice(0, 5); // Limit to 5 for performance
+            targetCompanyIds = searchResponse.data.slice(0, 5).map(c => c.Id); // Limit to 5 for performance
           }
         } else {
-        // Get all companies with hierarchical data
+          // Get top companies with hierarchical data
           const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
           if (allResourcesResponse.success && allResourcesResponse.data) {
-            targetCompanies = allResourcesResponse.data
+            targetCompanyIds = allResourcesResponse.data
               .filter(r => (r.TypeId === ResourceTypes.CLIENT || 
                            r.TypeId === ResourceTypes.SUPPLIER ||
-                           r.TypeId === ResourceTypes.PROSPECT) && r.ResponsibleResourceId)
-              .slice(0, 10); // Limit to 10 for performance
+                           r.TypeId === ResourceTypes.PROSPECT) && 
+                           (includeInactive || r.Active))
+              .slice(0, 10) // Limit to 10 for performance
+              .map(r => r.Id);
           }
         }
       
-        // Filter by active status if requested
-        if (!includeInactive) {
-          targetCompanies = targetCompanies.filter(c => c.Active);
-        }
-      
-        if (targetCompanies.length === 0) {
+        if (targetCompanyIds.length === 0) {
           return {
             relationships: [],
             totalMapped: 0,
@@ -127,167 +132,118 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
           };
         }
       
-        // Helper function to recursively get sub-resources up to maxDepth
-        async function getSubResources(parentId: number, currentDepth: number): Promise<Resource[]> {
-          if (currentDepth >= maxDepth) {
-            return [];
-          }
-          
-          const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
-          if (!allResourcesResponse.success || !allResourcesResponse.data) {
-            return [];
-          }
-          
-          const directChildren = allResourcesResponse.data.filter(r => 
-            r.ParentResourceId === parentId && 
-            (r.TypeId === ResourceTypes.CLIENT || 
-             r.TypeId === ResourceTypes.SUPPLIER ||
-             r.TypeId === ResourceTypes.PROSPECT) // Companies only
-          );
-          
-          const allChildren: Resource[] = [...directChildren];
-          
-          // Recursively get children of children
-          for (const child of directChildren) {
-            const grandChildren = await getSubResources(child.Id, currentDepth + 1);
-            allChildren.push(...grandChildren);
-          }
-          
-          return allChildren;
+        // Create relationship map using the service
+        let relationshipMap;
+        
+        if (targetCompanyIds.length === 1) {
+          // Single company relationship mapping
+          relationshipMap = await relationshipService.createCompanyRelationshipMap(targetCompanyIds[0], {
+            maxDepth,
+            includeInactive,
+            includeVisualization
+          });
+        } else {
+          // Multi-company network mapping
+          relationshipMap = await relationshipService.createNetworkRelationshipMap(targetCompanyIds, {
+            maxDepth,
+            includeInactive,
+            includeVisualization
+          });
         }
-
-        // Build relationship data for each company
-        const relationships = await Promise.all(
-          targetCompanies.map(async company => {
-          // Get hierarchical structure
-            const hierarchyResponse = await workbookClient.resources.getHierarchicalStructure(company.Id);
-            const hierarchy: HierarchicalResource | null = hierarchyResponse.success && hierarchyResponse.data ? hierarchyResponse.data[0] : null;
-          
-            // Get responsible employee details
-            let responsibleEmployee;
-            if (company.ResponsibleResourceId) {
-              const employeeResponse = await workbookClient.resources.getById(company.ResponsibleResourceId);
-              if (employeeResponse.success && employeeResponse.data) {
-                responsibleEmployee = {
-                  id: employeeResponse.data.Id,
-                  name: employeeResponse.data.Name || 'Unknown',
-                  email: employeeResponse.data.Email || undefined
-                };
-              }
-            }
-          
-            // Extract contacts from hierarchy
-            const contacts = hierarchy?.contacts || [];
-          
-            // Get sub-companies based on maxDepth setting
-            const subCompanies = await getSubResources(company.Id, 1);
+        
+        // Convert RelationshipService format to tool output format
+        const relationships = relationshipMap.nodes
+          .filter(node => node.type === 'company')
+          .map(companyNode => {
+            // Find responsible employee for this company
+            const responsibleConnection = relationshipMap.connections.find(c => 
+              c.toId === companyNode.id && c.connectionType === 'responsible_for'
+            );
+            const responsibleEmployee = responsibleConnection 
+              ? relationshipMap.nodes.find(n => n.id === responsibleConnection.fromId && n.type === 'employee')
+              : undefined;
             
-            // Find other companies managed by the same account manager
-            // This shows the account manager's full client portfolio
-            const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
-            const allResources = allResourcesResponse.success ? allResourcesResponse.data : [];
-          
-            const portfolioCompanies = company.ResponsibleResourceId ? allResources
-              ?.filter(r => 
-                r.ResponsibleResourceId === company.ResponsibleResourceId &&
-              r.Id !== company.Id &&
-              (r.TypeId === ResourceTypes.CLIENT || 
-               r.TypeId === ResourceTypes.SUPPLIER ||
-               r.TypeId === ResourceTypes.PROSPECT) &&
-              r.Active // Only show active clients in portfolio
-              )
-              .slice(0, 5) // Limit for display
-              .map(pc => ({
-                id: pc.Id,
-                name: pc.Name || 'Unknown'
-              })) || [] : [];
-          
-            // Find related employees (just the responsible employee)
-            const relatedEmployees = hierarchy?.responsibleEmployee 
-              ? [{
-                id: hierarchy.responsibleEmployee.Id,
-                name: hierarchy.responsibleEmployee.Name || 'Unknown',
-                role: 'Account Manager'
-              }]
-              : [];
-          
-            // Calculate connection strength (0-100)
-            let connectionStrength = 0;
-            const strengthFactors: string[] = [];
-          
-            // Has responsible employee: +30
+            // Find contacts for this company
+            const contactConnections = relationshipMap.connections.filter(c => 
+              c.toId === companyNode.id && c.connectionType === 'contact_of'
+            );
+            const contacts = contactConnections.map(conn => {
+              const contact = relationshipMap.nodes.find(n => n.id === conn.fromId && n.type === 'contact');
+              return contact ? {
+                id: contact.id,
+                name: contact.name,
+                email: contact.email,
+                phone: contact.phone
+              } : null;
+            }).filter(Boolean);
+            
+            // Find portfolio companies (other companies with same responsible employee)
+            const portfolioCompanies: Array<{id: number; name: string}> = [];
             if (responsibleEmployee) {
-              connectionStrength += 30;
-              strengthFactors.push('Has dedicated account manager');
+              const otherResponsibleConnections = relationshipMap.connections.filter(c => 
+                c.fromId === responsibleEmployee.id && 
+                c.connectionType === 'responsible_for' && 
+                c.toId !== companyNode.id
+              );
+              
+              otherResponsibleConnections.forEach(conn => {
+                const portfolioCompany = relationshipMap.nodes.find(n => n.id === conn.toId && n.type === 'company');
+                if (portfolioCompany) {
+                  portfolioCompanies.push({
+                    id: portfolioCompany.id,
+                    name: portfolioCompany.name
+                  });
+                }
+              });
             }
-          
-            // Contact count: up to +40
-            const contactScore = Math.min(contacts.length * 10, 40);
-            connectionStrength += contactScore;
-            if (contacts.length > 0) {
-              strengthFactors.push(`${contacts.length} contact${contacts.length > 1 ? 's' : ''}`);
-            }
-          
-            // Active status: +20
-            if (company.Active) {
-              connectionStrength += 20;
-              strengthFactors.push('Active client');
-            }
-          
-            // Has email: +10
-            if (company.Email) {
-              connectionStrength += 10;
-              strengthFactors.push('Has email');
-            }
-          
-            const strengthReason = strengthFactors.length > 0 
-              ? strengthFactors.join(', ')
-              : 'No connection factors';
-          
-            const typeNames = { 1: 'Company', 2: 'Employee', 3: 'Client' };
-            const companyType = typeNames[company.TypeId as keyof typeof typeNames] || `Type${company.TypeId}`;
-          
+            
+            // Calculate connection strength from RelationshipService data
+            const allConnections = relationshipMap.connections.filter(c => 
+              c.fromId === companyNode.id || c.toId === companyNode.id
+            );
+            const avgStrength = allConnections.length > 0 
+              ? allConnections.reduce((sum, conn) => sum + conn.strength, 0) / allConnections.length
+              : 0;
+            
+            const strengthFactors = [];
+            if (responsibleEmployee) {strengthFactors.push('Has dedicated account manager');}
+            if (contacts.length > 0) {strengthFactors.push(`${contacts.length} contact person(s)`);}
+            if (portfolioCompanies.length > 0) {strengthFactors.push(`Portfolio of ${portfolioCompanies.length} companies`);}
+            if (companyNode.active) {strengthFactors.push('Active company');}
+            
             return {
-              companyId: company.Id,
-              companyName: company.Name || 'Unknown',
-              companyType,
-              active: company.Active,
-              responsibleEmployee,
+              companyId: companyNode.id,
+              companyName: companyNode.name,
+              companyType: getResourceTypeName(companyNode.resourceType),
+              active: companyNode.active,
+              responsibleEmployee: responsibleEmployee ? {
+                id: responsibleEmployee.id,
+                name: responsibleEmployee.name,
+                email: responsibleEmployee.email
+              } : undefined,
               structure: {
-                contacts: contacts.slice(0, 5).map((c) => ({
-                  id: c.Id,
-                  name: c.Name || 'Unknown',
-                  email: c.Email || undefined,
-                  phone: c.Phone1 || undefined
-                })),
-                portfolioCompanies: maxDepth > 1 ? [...portfolioCompanies, ...subCompanies.map(sc => ({
-                  id: sc.Id,
-                  name: `↳ ${sc.Name || 'Unknown'}` // Indicate sub-company with arrow
-                }))] : portfolioCompanies,
-                relatedEmployees
+                contacts: contacts as Array<{id: number; name: string; email?: string; phone?: string}>,
+                portfolioCompanies,
+                relatedEmployees: responsibleEmployee ? [{
+                  id: responsibleEmployee.id,
+                  name: responsibleEmployee.name,
+                  role: 'Account Manager'
+                }] : []
               },
-              connectionStrength: Math.min(connectionStrength, 100),
-              strengthReason
+              connectionStrength: Math.round(avgStrength * 100),
+              strengthReason: strengthFactors.join(', ') || 'Basic company information available'
             };
-          })
-        );
-      
-        // Generate ASCII tree visualization if requested
-        let networkMap = '';
-        if (includeVisualization && relationships.length > 0) {
-          networkMap = generateASCIITree(relationships);
-        }
-      
+          });
+        
         return {
           relationships,
-          networkMap: includeVisualization ? networkMap : undefined,
-          totalMapped: relationships.length,
-          message: `Mapped ${relationships.length} company relationship${relationships.length !== 1 ? 's' : ''}`
+          networkMap: includeVisualization ? relationshipMap.visualTree : undefined,
+          totalMapped: relationshipMap.totalNodes,
+          message: `✅ Successfully mapped ${relationships.length} companies with ${relationshipMap.connections.length} connections across ${relationshipMap.totalNodes} total entities (companies, contacts, employees).`
         };
-      
+        
       } catch (error) {
         console.error('❌ Error in relationshipMappingTool:', error);
-      
         return {
           relationships: [],
           totalMapped: 0,
@@ -298,65 +254,16 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
   });
 }
 
-interface RelationshipData {
-  companyName: string;
-  active: boolean;
-  connectionStrength: number;
-  responsibleEmployee?: { name: string };
-  structure: {
-    contacts: Array<{ name: string; email?: string }>;
-    portfolioCompanies: Array<{ name: string }>;
-  };
-}
-
 /**
- * Generate ASCII tree visualization of relationships
+ * Convert resource type ID to human-readable name
  */
-function generateASCIITree(relationships: RelationshipData[]): string {
-  const lines: string[] = [];
-  lines.push('🏢 Company Relationship Map');
-  lines.push('═══════════════════════════');
-  lines.push('');
-  
-  relationships.forEach((rel, index) => {
-    const isLast = index === relationships.length - 1;
-    const prefix = isLast ? '└── ' : '├── ';
-    const continuationPrefix = isLast ? '    ' : '│   ';
-    
-    // Company line
-    const status = rel.active ? '✓' : '✗';
-    const strength = '●'.repeat(Math.ceil(rel.connectionStrength / 20));
-    lines.push(`${prefix}📁 ${rel.companyName} [${status}] ${strength}`);
-    
-    // Responsible employee
-    if (rel.responsibleEmployee) {
-      lines.push(`${continuationPrefix}├── 👤 Managed by: ${rel.responsibleEmployee.name}`);
-    }
-    
-    // Contacts
-    if (rel.structure.contacts.length > 0) {
-      lines.push(`${continuationPrefix}├── 📧 Contacts (${rel.structure.contacts.length}):`);
-      rel.structure.contacts.forEach((contact, cIndex) => {
-        const contactPrefix = cIndex === rel.structure.contacts.length - 1 ? '└── ' : '├── ';
-        const email = contact.email ? ` <${contact.email}>` : '';
-        lines.push(`${continuationPrefix}│   ${contactPrefix}${contact.name}${email}`);
-      });
-    }
-    
-    // Portfolio companies (other clients of same account manager)
-    if (rel.structure.portfolioCompanies.length > 0) {
-      lines.push(`${continuationPrefix}└── 👥 Account Manager's Other Clients (${rel.structure.portfolioCompanies.length}):`);
-      rel.structure.portfolioCompanies.forEach((portfolio, sIndex) => {
-        const portfolioPrefix = sIndex === rel.structure.portfolioCompanies.length - 1 ? '└── ' : '├── ';
-        lines.push(`${continuationPrefix}    ${portfolioPrefix}${portfolio.name}`);
-      });
-    }
-    
-    lines.push('');
-  });
-  
-  // Add legend
-  lines.push('Legend: ✓ Active | ✗ Inactive | ● Connection Strength');
-  
-  return lines.join('\n');
+function getResourceTypeName(typeId: number): string {
+  switch (typeId) {
+  case ResourceTypes.CLIENT: return 'Client';
+  case ResourceTypes.SUPPLIER: return 'Supplier'; 
+  case ResourceTypes.PROSPECT: return 'Prospect';
+  case ResourceTypes.EMPLOYEE: return 'Employee';
+  case ResourceTypes.CONTACT_PERSON: return 'Contact';
+  default: return 'Unknown';
+  }
 }

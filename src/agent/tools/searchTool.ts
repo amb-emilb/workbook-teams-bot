@@ -160,9 +160,12 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
   ✅ "Give me database overview"
   ✅ "How many clients/employees total?"
   ✅ "Active vs inactive breakdown"
+  ✅ "Which resource types have most inactive entries"
   ✅ "Compare prospects to clients"
   ✅ "Resource type summary"
   ✅ "Fresh/latest stats"
+  
+  🎯 HANDLES ALL ACTIVE/INACTIVE ANALYSIS - not a data quality issue!
   
   Returns numerical summaries and breakdowns, not individual records.
   Auto-purges cache for fresh data when requested.

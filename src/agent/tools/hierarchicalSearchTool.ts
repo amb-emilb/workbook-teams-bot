@@ -9,21 +9,19 @@ import { WorkbookClient } from '../../services/index.js';
 export function createHierarchicalSearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'hierarchical-search',
-    description: `🏗️ BULK HIERARCHICAL OPERATIONS - Use for large-scale company hierarchy processing.
-
-  DO NOT use for simple searches:
-  ❌ "Show me ADECCO with contacts" → Use companySearchTool (includes hierarchy)
-  ❌ "Find client contacts" → Use companySearchTool 
-  ❌ "Who manages this company" → Use companySearchTool
+    description: `⚠️ DEPRECATED - Use companySearchTool with bulkMode=true instead.
   
-  ONLY use for bulk operations:
-  ✅ "All companies with their full hierarchy structures"
-  ✅ "Bulk export all client relationships and contacts" 
-  ✅ "Mass hierarchy processing for data analysis"
-  ✅ "Complete organizational structure mapping"
+  🏗️ BULK HIERARCHICAL OPERATIONS - MIGRATED TO companySearchTool
   
-  Use companySearchTool for single/few companies. This tool is for bulk hierarchy processing.
-  Shows relationships between companies, contact persons, and responsible employees.`,
+  This tool is being consolidated into companySearchTool for better maintainability.
+  
+  USE INSTEAD:
+  ✅ companySearchTool with bulkMode=true for "All companies with their full hierarchy structures"
+  ✅ companySearchTool with bulkMode=true for "Bulk export all client relationships and contacts" 
+  ✅ companySearchTool with bulkMode=true for "Mass hierarchy processing for data analysis"
+  ✅ companySearchTool with bulkMode=true for "Complete organizational structure mapping"
+  
+  This tool will be removed in a future version.`,
   
     inputSchema: z.object({
       resourceId: z.number()

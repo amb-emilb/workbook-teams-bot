@@ -69,13 +69,27 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
       
         // Determine search strategy
         if (searchType === 'auto') {
-        // Handle empty or very generic queries first
-          if (!effectiveQuery || effectiveQuery === 'all' || effectiveQuery.toLowerCase().includes('list') || effectiveQuery.toLowerCase().includes('show me')) {
+        // Handle truly empty queries more conservatively
+          if (!effectiveQuery || effectiveQuery.trim() === '' || effectiveQuery === 'all') {
             searchStrategy = 'Complete dataset retrieval';
             const response = await workbookClient.resources.getAllResourcesComplete();
             if (response.success && response.data) {
               results = response.data;
             }
+          }
+          // Handle vague queries with suggestions instead of data dump
+          else if (effectiveQuery.toLowerCase().includes('show me') && effectiveQuery.length < 15) {
+            searchStrategy = 'Vague query - requesting clarification';
+            return {
+              results: [],
+              searchStrategy,
+              totalFound: 0,
+              message: `The query "${query}" is too vague. Please be more specific, such as:
+- "Show me all active clients"
+- "Show me employees in Copenhagen"  
+- "Show me companies starting with A"
+- Or search by specific name, email, or ID`
+            };
           }
           // Intelligent query analysis
           else {

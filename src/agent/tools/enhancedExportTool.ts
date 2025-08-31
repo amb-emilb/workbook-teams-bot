@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { WorkbookClient, Resource } from '../../services/index.js';
+import { WorkbookClient, Resource, RelationshipService } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
 import { fileStorageService } from '../../routes/fileRoutes.js';
 import { ExportContext, EnrichedResource } from '../../types/tool-results.js';
@@ -38,9 +38,9 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         .default('csv')
         .describe('Export format: csv (spreadsheet), json (structured), report (formatted text), statistics (summary)'),
     
-      exportType: z.enum(['all', 'filtered', 'custom'])
+      exportType: z.enum(['all', 'filtered', 'custom', 'relationships'])
         .default('filtered')
-        .describe('Export scope: all resources, filtered subset, or custom selection'),
+        .describe('Export scope: all resources, filtered subset, custom selection, or relationship mapping'),
         
       // Natural language context for intelligent processing
       userQuery: z.string()
@@ -138,6 +138,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
       
         const {
           format,
+          exportType,
           resourceTypes,
           active,
           companyIds,
@@ -156,6 +157,127 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         // Intelligent processing based on user query
         const intelligentContext = userQuery ? processUserQuery(userQuery) : {};
         console.log('🧠 Intelligent context from user query:', intelligentContext);
+
+        // Handle relationship export type
+        if (exportType === 'relationships') {
+          console.log('🔗 Processing relationship export...');
+          
+          const relationshipService = new RelationshipService(workbookClient);
+          
+          // Determine target companies for relationship mapping
+          let targetCompanyIds: number[] = [];
+          
+          if (companyIds && companyIds.length > 0) {
+            targetCompanyIds = companyIds;
+          } else if (userQuery) {
+            // Extract company names from query and search for them
+            const companyKeywords = intelligentContext.companyName || 
+              (userQuery.match(/(?:relationship|mapping|tree|network).*?(?:for|of)\s+([A-Z][A-Za-z\s&]+)/i)?.[1]);
+            
+            if (companyKeywords) {
+              const searchResponse = await workbookClient.resources.findCompaniesByName(companyKeywords);
+              if (searchResponse.success && searchResponse.data) {
+                targetCompanyIds = searchResponse.data.slice(0, 5).map(c => c.Id);
+              }
+            }
+          }
+          
+          // If no specific companies, get top companies
+          if (targetCompanyIds.length === 0) {
+            const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();
+            if (allResourcesResponse.success && allResourcesResponse.data) {
+              targetCompanyIds = allResourcesResponse.data
+                .filter(r => r.TypeId === ResourceTypes.CLIENT && r.Active)
+                .slice(0, 3)
+                .map(r => r.Id);
+            }
+          }
+          
+          // Create relationship map
+          const relationshipMap = await relationshipService.createNetworkRelationshipMap(targetCompanyIds, {
+            maxDepth: 3,
+            includeInactive: includeInactive || false,
+            includeVisualization: true
+          });
+          
+          // Generate export based on format
+          if (format === 'csv') {
+            // Create relationship CSV with nodes and connections
+            let csvContent = 'Type,ID,Name,ResourceType,Active,Email,Phone,ConnectionType,Depth,ConnectedTo,ConnectionStrength\n';
+            
+            relationshipMap.nodes.forEach(node => {
+              const connections = relationshipMap.connections.filter(c => c.fromId === node.id || c.toId === node.id);
+              
+              if (connections.length === 0) {
+                csvContent += `${node.type},${node.id},"${node.name}",${node.resourceType},${node.active},${node.email || ''},${node.phone || ''},${node.connectionType},${node.depth},,${node.connectionStrength}\n`;
+              } else {
+                connections.forEach(conn => {
+                  const connectedId = conn.fromId === node.id ? conn.toId : conn.fromId;
+                  const connectedNode = relationshipMap.nodes.find(n => n.id === connectedId);
+                  csvContent += `${node.type},${node.id},"${node.name}",${node.resourceType},${node.active},${node.email || ''},${node.phone || ''},${node.connectionType},${node.depth},${connectedNode?.name || connectedId},${conn.strength}\n`;
+                });
+              }
+            });
+            
+            // Save CSV file
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const relationshipFileName = fileName || `relationship-map-${relationshipMap.totalNodes}-nodes-${timestamp}.csv`;
+            const filePath = path.join(process.cwd(), 'exports', relationshipFileName);
+            
+            // Ensure exports directory exists
+            const exportsDir = path.join(process.cwd(), 'exports');
+            if (!fs.existsSync(exportsDir)) {
+              fs.mkdirSync(exportsDir, { recursive: true });
+            }
+            
+            fs.writeFileSync(filePath, csvContent, 'utf-8');
+            
+            const stats = relationshipService.getRelationshipStats(relationshipMap);
+            
+            return {
+              success: true,
+              preview: `✅ Relationship map exported successfully! ${relationshipMap.totalNodes} entities mapped with ${relationshipMap.connections.length} connections.`,
+              format: 'csv',
+              recordCount: relationshipMap.totalNodes,
+              filePath: saveToFile ? filePath : undefined,
+              exportedFields: ['Type', 'ID', 'Name', 'ResourceType', 'Active', 'Email', 'Phone', 'ConnectionType', 'Depth', 'ConnectedTo', 'ConnectionStrength'],
+              exportTime: new Date().toISOString(),
+              statistics: {
+                totalRecords: relationshipMap.totalNodes,
+                activeCount: stats.activeNodesCount,
+                inactiveCount: relationshipMap.totalNodes - stats.activeNodesCount,
+                employeeCount: stats.employeesCount,
+                contactCount: stats.contactsCount,
+                companiesWithContacts: stats.strongConnectionsCount,
+                uniqueCompanies: stats.companiesCount,
+                uniqueDepartments: 0
+              },
+              fileSize: `${Math.round(csvContent.length / 1024)} KB`
+            };
+          } else {
+            // Return structured relationship data for other formats
+            const stats = relationshipService.getRelationshipStats(relationshipMap);
+            return {
+              success: true,
+              preview: `✅ Relationship map generated! ${relationshipMap.totalNodes} entities mapped with ${relationshipMap.connections.length} connections.`,
+              format: format,
+              recordCount: relationshipMap.totalNodes,
+              exportedFields: ['nodes', 'connections', 'statistics'],
+              exportTime: new Date().toISOString(),
+              data: relationshipMap,
+              statistics: {
+                totalRecords: relationshipMap.totalNodes,
+                activeCount: stats.activeNodesCount,
+                inactiveCount: relationshipMap.totalNodes - stats.activeNodesCount,
+                employeeCount: stats.employeesCount,
+                contactCount: stats.contactsCount,
+                companiesWithContacts: stats.strongConnectionsCount,
+                uniqueCompanies: stats.companiesCount,
+                uniqueDepartments: 0
+              }
+            };
+          }
+        }
 
         // Build search parameters with intelligent overrides
         const searchParams: Record<string, string | number | boolean | string[] | number[]> = {};
@@ -366,7 +488,7 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
         let downloadUrl: string | undefined;
         if (saveToFile) {
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const smartFileName = generateSmartFileName(intelligentContext, resources.length, format);
+          const smartFileName = generateSmartFileName(intelligentContext, resources.length);
           const defaultFileName = `workbook-export-${format}-${timestamp}`;
           const actualFileName = fileName || smartFileName || defaultFileName;
           const fileExtension = format === 'csv' ? 'csv' : 
@@ -576,6 +698,7 @@ function processUserQuery(query: string): {
   exportType?: string;
   employeeName?: string;
   nameStartsWith?: string;
+  companyName?: string;
 } {
   const queryLower = query.toLowerCase();
   const context: ExportContext = {};
@@ -942,8 +1065,7 @@ async function createClientContactRelationalExport(
  */
 function generateSmartFileName(
   context: ExportContext, 
-  recordCount: number, 
-  format: string
+  recordCount: number
 ): string {
   const now = new Date();
   const dateStamp = now.toISOString().slice(0, 10); // YYYY-MM-DD
@@ -954,12 +1076,12 @@ function generateSmartFileName(
   if (context.resourceTypes && context.resourceTypes.length > 0) {
     const typeNames = context.resourceTypes.map(typeId => {
       switch (typeId) {
-        case ResourceTypes.CLIENT: return 'clients';
-        case ResourceTypes.EMPLOYEE: return 'employees';
-        case ResourceTypes.CONTACT_PERSON: return 'contacts';
-        case ResourceTypes.PROSPECT: return 'prospects';
-        case ResourceTypes.SUPPLIER: return 'suppliers';
-        default: return `type${typeId}`;
+      case ResourceTypes.CLIENT: return 'clients';
+      case ResourceTypes.EMPLOYEE: return 'employees';
+      case ResourceTypes.CONTACT_PERSON: return 'contacts';
+      case ResourceTypes.PROSPECT: return 'prospects';
+      case ResourceTypes.SUPPLIER: return 'suppliers';
+      default: return `type${typeId}`;
       }
     });
     
@@ -1005,7 +1127,7 @@ function generateSmartFileName(
   
   // Clean up filename - remove invalid characters, limit length
   fileName = fileName
-    .replace(/[^a-z0-9\-]/gi, '')
+    .replace(/[^a-z0-9-]/gi, '')
     .replace(/--+/g, '-')
     .replace(/^-|-$/g, '')
     .substring(0, 120); // Slightly increased limit for time component

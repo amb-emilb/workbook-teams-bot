@@ -28,6 +28,82 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/**
+ * Tool selection validation middleware
+ * Analyzes queries and redirects them for better tool selection
+ */
+interface ToolSelectionResult {
+  needsRedirection: boolean;
+  redirectedMessage: string;
+  reason?: string;
+  warning?: string;
+}
+
+function validateToolSelection(message: string): ToolSelectionResult {
+  const query = message.toLowerCase();
+  
+  // Geographic queries should use geographicAnalysisTool, not companySearchTool
+  const geographicPatterns = [
+    /find.*companies.*in.*(copenhagen|københavn|denmark|danish|århus|aarhus)/,
+    /show.*clients.*(in|from).*(copenhagen|københavn|denmark|danish|århus|aarhus)/,
+    /list.*clients.*(copenhagen|københavn|denmark|danish|århus|aarhus)/,
+    /danish.*clients/,
+    /companies.*denmark/,
+    /clients.*copenhagen/
+  ];
+  
+  for (const pattern of geographicPatterns) {
+    if (pattern.test(query)) {
+      return {
+        needsRedirection: true,
+        redirectedMessage: `Please use geographic analysis to ${message}`,
+        reason: 'Geographic query detected - routing to geographicAnalysisTool'
+      };
+    }
+  }
+  
+  // Simple company searches should NOT use advancedFilterTool
+  const simpleCompanyPatterns = [
+    /^show.*all.*clients$/,
+    /^list.*clients$/,
+    /^find.*company.*[a-z]+$/i,
+    /^show.*companies$/
+  ];
+  
+  for (const pattern of simpleCompanyPatterns) {
+    if (pattern.test(query)) {
+      return {
+        needsRedirection: true,
+        redirectedMessage: `Use company search tool to ${message}`,
+        reason: 'Simple company search - routing to companySearchTool'
+      };
+    }
+  }
+  
+  // Complex multi-criteria should emphasize the complexity
+  const complexFilterPatterns = [
+    /\band\b.*\bwith\b/,
+    /active.*clients.*with.*contacts/,
+    /companies.*missing.*email/,
+    /clients.*managed by.*\band\b/
+  ];
+  
+  for (const pattern of complexFilterPatterns) {
+    if (pattern.test(query)) {
+      return {
+        needsRedirection: false,
+        redirectedMessage: message,
+        warning: 'Complex multi-criteria query - should use advancedFilterTool'
+      };
+    }
+  }
+  
+  return {
+    needsRedirection: false,
+    redirectedMessage: message
+  };
+}
+
 // Module-level logging to track if module is being reloaded
 const moduleLoadTime = new Date();
 console.log(`[${moduleLoadTime.toISOString()}] teamsBot.ts module loaded/reloaded`);
@@ -309,6 +385,22 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
 
     // Test memory persistence before executing
     console.log('[MEMORY TEST] Testing memory persistence...');
+    
+    // TOOL SELECTION VALIDATION MIDDLEWARE
+    const toolValidation = validateToolSelection(enhancedMessage);
+    if (toolValidation.needsRedirection) {
+      console.log('[TOOL SELECTION] Query redirected for better tool selection', {
+        original: enhancedMessage.substring(0, 50) + '...',
+        redirected: toolValidation.redirectedMessage.substring(0, 50) + '...',
+        reason: toolValidation.reason
+      });
+      enhancedMessage = toolValidation.redirectedMessage;
+    } else if (toolValidation.warning) {
+      console.log('[TOOL SELECTION] Warning for query', {
+        query: enhancedMessage.substring(0, 50) + '...',
+        warning: toolValidation.warning
+      });
+    }
     
     // Execute our existing Mastra agent with native memory system
     // User context is maintained through threadId and resourceId, not in the message

@@ -9,14 +9,22 @@ import { WorkbookClient } from '../../services/index.js';
 export function createBulkOperationsTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'bulk-operations',
-    description: `Perform bulk operations on multiple resources in Workbook CRM. Use this tool to:
+    description: `BULK OPERATIONS TOOL - Use this tool ONLY for actual bulk modifications/updates of multiple resources.
+
+  PRIMARY USE CASES:
   - Activate or deactivate multiple resources at once
-  - Update email addresses in bulk
-  - Update company/folder assignments
-  - Perform mass status changes
-  - Execute batch operations with confirmation
+  - Update email addresses in bulk (requires valid email format like user@domain.com)
+  - Update company/folder assignments for multiple resources
+  - Perform mass status changes with criteria
+  - Execute batch operations with confirmation and preview mode
   
-  Supports preview mode for safety and tracks success/failure for each operation.`,
+  DO NOT USE for:
+  - Simple data exports (use enhancedExportTool instead)
+  - Searching or filtering data (use advancedFilterTool instead)
+  - Single resource updates (use individual tools instead)
+  - Data analysis or reporting (use appropriate analysis tools)
+  
+  This tool modifies actual data - always use preview mode first for safety.`,
   
     inputSchema: z.object({
       operation: z.enum(['activate', 'deactivate', 'updateEmail', 'updateFolder', 'preview'])

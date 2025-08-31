@@ -4,6 +4,199 @@ import { WorkbookClient } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
 import { cacheManager } from '../../services/base/cache.js';
 import { Resource, Contact } from '../../types/workbook.types.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Handle bulk hierarchy mode - retrieve all companies with hierarchical data
+ */
+async function handleBulkHierarchyMode(workbookClient: WorkbookClient, includeHierarchy: boolean) {
+  try {
+    // Get all resources (use complete dataset)
+    const resourcesResponse = await workbookClient.resources.getAllResourcesComplete();
+    
+    if (!resourcesResponse.success || !resourcesResponse.data) {
+      return {
+        companies: [],
+        found: false,
+        count: 0,
+        message: `Error fetching resources: ${resourcesResponse.error}`
+      };
+    }
+
+    const resources = resourcesResponse.data;
+    
+    // Filter to get companies (those with ResponsibleResourceId)
+    const companies = resources.filter(r => r.ResponsibleResourceId && r.ResponsibleResourceId > 0);
+    
+    // Build hierarchical data
+    const companiesWithDetails = await Promise.all(
+      companies.map(async company => {
+        // Find responsible employee
+        const responsibleEmployee = company.ResponsibleResourceId
+          ? resources.find(r => r.Id === company.ResponsibleResourceId)
+          : undefined;
+        
+        let contacts: Contact[] = [];
+        
+        if (includeHierarchy) {
+          const contactsResponse = await workbookClient.resources.getContactsForResource(company.Id);
+          if (contactsResponse.success && contactsResponse.data) {
+            contacts = contactsResponse.data;
+          }
+        }
+        
+        return {
+          id: company.Id,
+          name: company.Name || 'Unknown',
+          typeId: company.TypeId || 0,
+          active: company.Active,
+          email: company.Email || '',
+          phone: company.Phone1 || '',
+          address: company.Address1 || '',
+          city: company.City || '',
+          country: company.Country || '',
+          responsibleEmployee: responsibleEmployee?.Name || 'Unassigned',
+          responsibleEmployeeId: company.ResponsibleResourceId || 0,
+          contacts: includeHierarchy ? contacts : [],
+          contactCount: contacts.length
+        };
+      })
+    );
+    
+    // Generate meaningful summary for Teams message limits
+    const cacheStatus = resourcesResponse.cached ? ' (cached)' : '';
+    
+    // Calculate summary statistics
+    const activeCompanies = companiesWithDetails.filter(c => c.active);
+    const inactiveCompanies = companiesWithDetails.filter(c => !c.active);
+    const companiesWithContacts = companiesWithDetails.filter(c => c.contactCount > 0);
+    const totalContacts = companiesWithDetails.reduce((sum, c) => sum + c.contactCount, 0);
+    
+    // Group by responsible employee
+    const employeeStats = companiesWithDetails.reduce((acc, company) => {
+      const employee = company.responsibleEmployee;
+      if (!acc[employee]) {
+        acc[employee] = { count: 0, companies: [] };
+      }
+      acc[employee].count++;
+      acc[employee].companies.push(company.name);
+      return acc;
+    }, {} as Record<string, { count: number; companies: string[] }>);
+    
+    // Get top 5 employees by client count
+    const topEmployees = Object.entries(employeeStats)
+      .sort(([,a], [,b]) => b.count - a.count)
+      .slice(0, 5);
+    
+    // Get top 20 companies with details for meaningful output
+    const topCompanies = companiesWithDetails
+      .sort((a, b) => b.contactCount - a.contactCount)
+      .slice(0, 20);
+    
+    // Generate CSV file for bulk data
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const fileName = `bulk-companies-${timestamp}.csv`;
+    const exportsDir = path.join(process.cwd(), 'exports');
+    
+    // Ensure exports directory exists
+    if (!fs.existsSync(exportsDir)) {
+      fs.mkdirSync(exportsDir, { recursive: true });
+    }
+    
+    const filePath = path.join(exportsDir, fileName);
+    
+    // Generate CSV content
+    let csvContent = 'Company ID,Company Name,Status,Email,Phone,Address,City,Country,Responsible Employee,Contact Count,Contacts\n';
+    
+    companiesWithDetails.forEach(company => {
+      const contactList = company.contacts.slice(0, 5).map(c => 
+        `${c.Name} (${c.Email || 'no email'})`
+      ).join('; ');
+      
+      csvContent += [
+        company.id,
+        `"${company.name.replace(/"/g, '""')}"`,
+        company.active ? 'Active' : 'Inactive',
+        company.email || '',
+        company.phone || '',
+        `"${(company.address || '').replace(/"/g, '""')}"`,
+        company.city || '',
+        company.country || '',
+        `"${company.responsibleEmployee.replace(/"/g, '""')}"`,
+        company.contactCount,
+        `"${contactList}"`
+      ].join(',') + '\n';
+    });
+    
+    // Write CSV file
+    fs.writeFileSync(filePath, csvContent, 'utf-8');
+    console.log(`✅ Bulk export saved: ${filePath}`);
+    
+    // Build summary message (without the full data)
+    let message = `📊 **Company Portfolio Analysis Complete**${cacheStatus}\n\n`;
+    message += '**Summary Statistics:**\n';
+    message += `• Total Companies: ${companiesWithDetails.length} (${activeCompanies.length} active, ${inactiveCompanies.length} inactive)\n`;
+    message += `• Total Contacts: ${totalContacts} across ${companiesWithContacts.length} companies\n`;
+    message += `• Average Contacts per Company: ${companiesWithContacts.length > 0 ? (totalContacts / companiesWithContacts.length).toFixed(1) : 0}\n\n`;
+    
+    message += '**Top 5 Account Managers:**\n';
+    topEmployees.forEach(([name, stats], index) => {
+      message += `${index + 1}. ${name}: ${stats.count} companies\n`;
+    });
+    
+    // Group by country for geographic insights
+    const countryStats = companiesWithDetails.reduce((acc, company) => {
+      const country = company.country || 'Unknown';
+      if (!acc[country]) {acc[country] = 0;}
+      acc[country]++;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const topCountries = Object.entries(countryStats)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+    
+    message += '\n**Geographic Distribution (Top 5):**\n';
+    topCountries.forEach(([country, count]) => {
+      message += `• ${country}: ${count} companies\n`;
+    });
+    
+    message += '\n📁 **Export Details:**\n';
+    message += `• File: ${fileName}\n`;
+    message += `• Location: ${filePath}\n`;
+    message += '• Format: CSV with company details and contacts\n';
+    message += `• Records: ${companiesWithDetails.length} companies exported\n\n`;
+    message += '💡 **Next Steps:** Open the CSV file in Excel or any spreadsheet application for detailed analysis.';
+    
+    return {
+      companies: [], // Don't return the full array to avoid token limits
+      found: companiesWithDetails.length > 0,
+      count: companiesWithDetails.length,
+      message,
+      filePath: filePath,
+      fileName: fileName,
+      // Add summary stats for programmatic use
+      summary: {
+        totalCompanies: companiesWithDetails.length,
+        activeCompanies: activeCompanies.length,
+        inactiveCompanies: inactiveCompanies.length,
+        totalContacts: totalContacts,
+        topEmployees: topEmployees.map(([name, stats]) => ({ name, count: stats.count })),
+        sampleCompanies: topCompanies.slice(0, 3).map(c => c.name)
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in bulk hierarchy mode:', error);
+    return {
+      companies: [],
+      found: false,
+      count: 0,
+      message: `Error in bulk hierarchy processing: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+}
 
 /**
  * Create natural language company search tool using ResourceService
@@ -12,29 +205,37 @@ import { Resource, Contact } from '../../types/workbook.types.js';
 export function createCompanySearchTool(workbookClient: WorkbookClient) {
   return createTool({
     id: 'search-company-by-name',
-    description: `🏢 PRIMARY tool for COMPANIES (clients, suppliers, prospects) and business entity searches by NAME.
+    description: `🏢 COMPANY SEARCH TOOL - Searches and retrieves basic company data and information.
 
-  Use this tool for:
-  ✅ "Show me all active clients"
-  ✅ "List client companies" 
-  ✅ "Show all suppliers"
-  ✅ "ADECCO company details"
-  ✅ "Clients managed by admin"
-  ✅ "All inactive companies"
-  ✅ "Companies starting with A"
+  PRIMARY USE CASES:
+  ✅ "Show me all active clients" - basic company lists
+  ✅ "List client companies" - simple company searches
+  ✅ "Show all suppliers" - retrieve supplier data
+  ✅ "ADECCO company details" - get company information
+  ✅ "Clients managed by admin" - search by responsible employee
+  ✅ "All inactive companies" - status-based searches
+  ✅ "Companies starting with A" - name-based filtering
   
-  Handles both search AND display for companies.
-  Searches by company name or responsible employee name only.
+  🏗️ BULK HIERARCHY OPERATIONS (replaces hierarchicalSearchTool):
+  ✅ "All companies with their full hierarchy structures"
+  ✅ "Bulk export all client relationships and contacts" 
+  ✅ "Mass hierarchy processing for data analysis"
+  ✅ "Complete organizational structure mapping"
   
-  IMPORTANT: Use this for COMPANIES (TypeId 3=Clients, 4=Suppliers, 6=Prospects), not individual people.
-  For employees or contact persons, use searchContactsTool.
-  For data exports, use enhancedExportTool.
-  For location-based queries (cities, countries), use geographicAnalysisTool.`,
+  ❌ DO NOT USE for:
+  - Relationship trees or visualization requests (use relationshipMappingTool instead)
+  - "Show relationship tree" or "visualize connections" (use relationshipMappingTool)
+  - ASCII tree diagrams or relationship mapping (use relationshipMappingTool)
+  - Network analysis or connection visualization (use relationshipMappingTool)
+  - Data exports to files (use enhancedExportTool instead)
+  - Location-based queries (use geographicAnalysisTool instead)
+  
+  This tool provides basic company data retrieval, not relationship visualization.`,
   
     inputSchema: z.object({
       companyName: z.string()
         .optional()
-        .describe('Company name to search for (case-insensitive, supports partial matching)'),
+        .describe('Company name to search for (case-insensitive, supports partial matching). Not required when bulkMode=true.'),
       responsibleEmployee: z.string()
         .optional()
         .describe('Name of responsible employee to search clients for (e.g., "admin", "john")'),
@@ -43,7 +244,10 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
         .describe('Whether to include full hierarchy (contacts, responsible employee)'),
       multiple: z.boolean()
         .default(false)
-        .describe('Whether to return multiple matching companies (true) or just the first match (false)')
+        .describe('Whether to return multiple matching companies (true) or just the first match (false)'),
+      bulkMode: z.boolean()
+        .default(false)
+        .describe('Bulk hierarchy processing: returns all companies with hierarchical data (ignores companyName filter)')
     }),
   
     outputSchema: z.object({
@@ -65,14 +269,31 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
       })),
       found: z.boolean(),
       count: z.number(),
-      message: z.string()
+      message: z.string(),
+      summary: z.object({
+        totalCompanies: z.number(),
+        activeCompanies: z.number(),
+        inactiveCompanies: z.number(),
+        totalContacts: z.number(),
+        topEmployees: z.array(z.object({
+          name: z.string(),
+          count: z.number()
+        })),
+        sampleCompanies: z.array(z.string())
+      }).optional()
     }),
   
     execute: async ({ context }) => {
       try {
-        const { companyName, responsibleEmployee, includeHierarchy = true, multiple = false } = context;
+        const { companyName, responsibleEmployee, includeHierarchy = true, multiple = false, bulkMode = false } = context;
         
-        // Validate that at least one search criteria is provided
+        // Handle bulk mode - bypass normal validation
+        if (bulkMode) {
+          console.log('🏗️ Bulk hierarchy mode activated - retrieving all companies with hierarchical data');
+          return await handleBulkHierarchyMode(workbookClient, includeHierarchy);
+        }
+        
+        // Validate that at least one search criteria is provided for normal mode
         if (!companyName && !responsibleEmployee) {
           return {
             companies: [],
@@ -160,6 +381,10 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
                 typeId: company.TypeId || 0,
                 email: company.Email,
                 active: company.Active,
+                phone: company.Phone1,
+                city: company.City,
+                country: company.Country,
+                responsibleEmployee: hierarchy?.responsibleEmployee?.Name,
                 hierarchy: hierarchy ? {
                   responsibleEmployee: hierarchy.responsibleEmployee?.Name,
                   contactCount: hierarchy.contacts.length,
@@ -177,16 +402,41 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
                 typeId: company.TypeId || 0,
                 email: company.Email,
                 active: company.Active,
+                phone: company.Phone1,
+                city: company.City,
+                country: company.Country,
+                responsibleEmployee: undefined, // Not fetched in non-hierarchy mode
                 hierarchy: undefined
               });
             }
           }
         
+          // Build detailed message with actual company data
+          let multiMessage = `**Found ${companies.length} companies matching "${companyName}"**\n\n`;
+          
+          results.forEach((company, index) => {
+            multiMessage += `${index + 1}. **${company.name}**\n`;
+            multiMessage += `   • Status: ${company.active ? 'Active' : 'Inactive'}\n`;
+            if (company.email) {multiMessage += `   • Email: ${company.email}\n`;}
+            if (company.phone) {multiMessage += `   • Phone: ${company.phone}\n`;}
+            if (company.city || company.country) {
+              multiMessage += `   • Location: ${[company.city, company.country].filter(Boolean).join(', ')}\n`;
+            }
+            if (company.responsibleEmployee) {
+              multiMessage += `   • Responsible: ${company.responsibleEmployee}\n`;
+            }
+            multiMessage += '\n';
+          });
+          
+          if (companies.length > 10) {
+            multiMessage += `... and ${companies.length - 10} more companies. Use export tools for complete list.`;
+          }
+          
           return {
             companies: results,
             found: true,
             count: companies.length,
-            message: `Found ${companies.length} companies matching "${companyName}"${companies.length > 10 ? ' (showing first 10)' : ''}`
+            message: multiMessage
           };
         
         } else if (companyName) {
@@ -212,6 +462,35 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
           }
         
           const hierarchy = hierarchyResponse.data;
+          
+          // Build detailed message with actual contact information
+          let detailedMessage = `**Company: ${hierarchy.resource.Name}**\n\n`;
+          detailedMessage += '**Company Details:**\n';
+          detailedMessage += `• Status: ${hierarchy.resource.Active ? 'Active' : 'Inactive'}\n`;
+          detailedMessage += `• Email: ${hierarchy.resource.Email || 'Not provided'}\n`;
+          detailedMessage += `• Phone: ${hierarchy.resource.Phone1 || 'Not provided'}\n`;
+          detailedMessage += `• Address: ${hierarchy.resource.Address1 || 'Not provided'}\n`;
+          if (hierarchy.resource.City || hierarchy.resource.Country) {
+            detailedMessage += `• Location: ${[hierarchy.resource.City, hierarchy.resource.Country].filter(Boolean).join(', ')}\n`;
+          }
+          detailedMessage += `• Responsible Employee: ${hierarchy.responsibleEmployee?.Name || 'None assigned'}\n`;
+          detailedMessage += `• Total Contacts: ${hierarchy.contacts.length}\n`;
+          
+          if (includeHierarchy && hierarchy.contacts.length > 0) {
+            detailedMessage += `\n**Contact Persons (${Math.min(10, hierarchy.contacts.length)} of ${hierarchy.contacts.length}):**\n`;
+            hierarchy.contacts.slice(0, 10).forEach((contact, index) => {
+              detailedMessage += `${index + 1}. **${contact.Name}**\n`;
+              if (contact.Title) {detailedMessage += `   • Title: ${contact.Title}\n`;}
+              if (contact.Email) {detailedMessage += `   • Email: ${contact.Email}\n`;}
+              if (contact.Phone1) {detailedMessage += `   • Phone: ${contact.Phone1}\n`;}
+              if (contact.CellPhone) {detailedMessage += `   • Mobile: ${contact.CellPhone}\n`;}
+            });
+            
+            if (hierarchy.contacts.length > 10) {
+              detailedMessage += `\n... and ${hierarchy.contacts.length - 10} more contacts.\n`;
+            }
+          }
+          
         
           return {
             companies: [{
@@ -232,7 +511,7 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
             }],
             found: true,
             count: 1,
-            message: `Found company "${hierarchy.resource.Name}" with ${hierarchy.contacts.length} contacts and responsible employee: ${hierarchy.responsibleEmployee?.Name || 'None'}`
+            message: detailedMessage
           };
         } else {
           return {
