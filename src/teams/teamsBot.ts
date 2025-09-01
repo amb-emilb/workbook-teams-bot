@@ -22,7 +22,7 @@ import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
 
-import { ResponseParser, createDownloadCard, createCompanyResultsCard, createContactResultsCard } from './adaptiveCards.js';
+import { ResponseParser, EnhancedResponseParser, ResponseContext, createDownloadCard, createCompanyResultsCard, createContactResultsCard, createDatabaseOverviewCard, createPortfolioAnalysisCard, createGeographicResultsCard, createRelationshipMappingCard } from './adaptiveCards.js';
 
 import dotenv from 'dotenv';
 
@@ -38,6 +38,7 @@ interface ToolSelectionResult {
   reason?: string;
   warning?: string;
 }
+
 
 function validateToolSelection(message: string): ToolSelectionResult {
   const query = message.toLowerCase();
@@ -221,32 +222,116 @@ console.log(`[AGENT CACHE DIAGNOSTIC] teamsBot.ts loaded - PID: ${processId}, Mo
  * Enhanced response with Adaptive Cards
  * Provides rich, interactive cards for better UX in Teams
  */
-async function enhanceResponseWithAdaptiveCards(responseText: string, context: TurnContext): Promise<void> {
+async function enhanceResponseWithAdaptiveCards(responseText: string, context: TurnContext, originalQuery?: string, toolUsed?: string): Promise<void> {
   console.log('[ADAPTIVE CARDS] Processing response for enhanced UX...');
   
   try {
-    // Parse download links from response
-    const downloadResult = ResponseParser.parseDownloadLink(responseText);
-    const companies = ResponseParser.parseCompanyResults(responseText);
-    const contacts = ResponseParser.parseContactResults(responseText);
+    // Create response context for intelligent card selection
+    const responseContext: ResponseContext = {
+      originalQuery: originalQuery,
+      toolUsed: toolUsed
+    };
     
-    if (downloadResult) {
-      console.log('[ADAPTIVE CARDS] Creating download card for:', downloadResult.downloadUrl);
-      const downloadCard = createDownloadCard(downloadResult);
-      await context.sendActivity({ attachments: [downloadCard] });
-    } else if (companies && companies.length > 0) {
-      console.log('[ADAPTIVE CARDS] Creating company results card for', companies.length, 'companies');
-      const companyCard = createCompanyResultsCard(companies);
-      await context.sendActivity({ attachments: [companyCard] });
-    } else if (contacts && contacts.length > 0) {
-      console.log('[ADAPTIVE CARDS] Creating contact results card for', contacts.length, 'contacts');
-      const contactCard = createContactResultsCard(contacts);
-      await context.sendActivity({ attachments: [contactCard] });
-    } else {
-      // Fallback to plain text for responses that don't match patterns
-      console.log('[ADAPTIVE CARDS] No special formatting needed, sending plain text');
-      await context.sendActivity(responseText);
+    // Use enhanced parser to detect appropriate card type
+    const cardType = EnhancedResponseParser.detectCardType(responseText, responseContext);
+    
+    console.log('[ADAPTIVE CARDS] Detected card type:', cardType, 'for tool:', toolUsed);
+    
+    switch (cardType) {
+    case 'database-overview': {
+      const overview = EnhancedResponseParser.parseDatabaseOverview(responseText);
+      if (overview) {
+        console.log('[ADAPTIVE CARDS] Creating database overview card');
+        const overviewCard = createDatabaseOverviewCard(overview);
+        await context.sendActivity({ attachments: [overviewCard] });
+        return;
+      }
+      break;
     }
+      
+    case 'portfolio-analysis': {
+      const portfolios = EnhancedResponseParser.parsePortfolioAnalysis(responseText);
+      if (portfolios) {
+        console.log('[ADAPTIVE CARDS] Creating portfolio analysis card for', portfolios.length, 'employees');
+        const portfolioCard = createPortfolioAnalysisCard(portfolios);
+        await context.sendActivity({ attachments: [portfolioCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'geographic-results': {
+      const geographic = EnhancedResponseParser.parseGeographicResults(responseText);
+      if (geographic) {
+        console.log('[ADAPTIVE CARDS] Creating geographic results card for', geographic.length, 'locations');
+        const geoCard = createGeographicResultsCard(geographic);
+        await context.sendActivity({ attachments: [geoCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'relationship-mapping': {
+      const relationships = EnhancedResponseParser.parseRelationshipMappings(responseText);
+      if (relationships) {
+        console.log('[ADAPTIVE CARDS] Creating relationship mapping card for', relationships.length, 'employees');
+        const relationshipCard = createRelationshipMappingCard(relationships);
+        await context.sendActivity({ attachments: [relationshipCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'download': {
+      const downloadResult = ResponseParser.parseDownloadLink(responseText);
+      if (downloadResult) {
+        console.log('[ADAPTIVE CARDS] Creating download card for:', downloadResult.downloadUrl);
+        const downloadCard = createDownloadCard(downloadResult);
+        await context.sendActivity({ attachments: [downloadCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'company-results': {
+      const companies = ResponseParser.parseCompanyResults(responseText);
+      if (companies && companies.length > 0) {
+        console.log('[ADAPTIVE CARDS] Creating company results card for', companies.length, 'companies');
+        const companyCard = createCompanyResultsCard(companies, originalQuery);
+        await context.sendActivity({ attachments: [companyCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'contact-results': {
+      const contacts = ResponseParser.parseContactResults(responseText);
+      if (contacts && contacts.length > 0) {
+        console.log('[ADAPTIVE CARDS] Creating contact results card for', contacts.length, 'contacts');
+        const contactCard = createContactResultsCard(contacts, originalQuery);
+        await context.sendActivity({ attachments: [contactCard] });
+        return;
+      }
+      break;
+    }
+      
+    case 'data-quality': {
+      const dataQuality = ResponseParser.parseDataQuality(responseText);
+      if (dataQuality) {
+        console.log('[ADAPTIVE CARDS] Creating data quality card');
+        const { createDataQualityCard } = await import('./adaptiveCards.js');
+        const qualityCard = createDataQualityCard(dataQuality);
+        await context.sendActivity({ attachments: [qualityCard] });
+        return;
+      }
+      break;
+    }
+    }
+    
+    // Fallback to plain text for responses that don't match any card pattern
+    console.log('[ADAPTIVE CARDS] No specific card pattern matched, sending plain text');
+    await context.sendActivity(responseText);
+    
   } catch (error) {
     console.error('[ADAPTIVE CARDS] Error processing response, falling back to plain text:', error);
     await context.sendActivity(responseText);
@@ -258,7 +343,12 @@ async function enhanceResponseWithAdaptiveCards(responseText: string, context: T
  * This allows our existing 12 tools to work seamlessly with Teams
  * Now includes persistent conversation context via Mastra's native memory system
  */
-async function executeMastraAgent(message: string, state: WorkbookTurnState, context: TurnContext) {
+interface AgentExecutionResult {
+  responseText: string;
+  toolsUsed: string[];
+}
+
+async function executeMastraAgent(message: string, state: WorkbookTurnState, context: TurnContext): Promise<AgentExecutionResult> {
   const startTime = Date.now();
   try {
     console.log('[AGENT EXECUTION] Bridging Teams AI to Mastra Agent', { 
@@ -308,7 +398,7 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Check for prompt injection attempts
     if (detectPromptInjection(message)) {
       console.warn('SECURITY: Potential prompt injection detected', { message });
-      return 'Your request contains invalid patterns. Please rephrase your query.';
+      return { responseText: 'Your request contains invalid patterns. Please rephrase your query.', toolsUsed: [] };
     }
 
     // Sanitize the input
@@ -318,7 +408,7 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     const queryValidation = validateSearchQuery(sanitizedMessage);
     if (!queryValidation.valid) {
       console.warn('Invalid query', { error: queryValidation.error });
-      return `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`;
+      return { responseText: `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`, toolsUsed: [] };
     }
 
     console.log('Input validated and sanitized');
@@ -417,12 +507,15 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       responseReceived: !!response
     });
 
-    // Extract the response text
-    let responseText = '';
-    if (response && response.text) {
-      responseText = response.text;
-    } else {
-      responseText = 'I completed the task successfully.';
+    // Extract the response text and tool information from Mastra response
+    const responseText = response?.text || 'I completed the task successfully.';
+    let toolsUsed: string[] = [];
+    
+    // Extract tool usage information from Mastra toolCalls
+    if (response?.toolCalls && Array.isArray(response.toolCalls)) {
+      toolsUsed = response.toolCalls
+        .map(tc => tc.toolName)
+        .filter(Boolean);
     }
 
     const duration = Date.now() - startTime;
@@ -432,14 +525,16 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       threadId: threadId.substring(0, 20) + '...',
       resourceId: resourceId.substring(0, 20) + '...',
       userName: userName,
-      preview: responseText.substring(0, 100) 
+      preview: responseText.substring(0, 100),
+      toolsUsed: toolsUsed 
     });
-    return responseText;
+    
+    return { responseText, toolsUsed: [...new Set(toolsUsed)] };
 
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error('Error bridging to Mastra agent', { error, duration });
-    return 'I encountered an error while processing your request. Please try again.';
+    return { responseText: 'I encountered an error while processing your request. Please try again.', toolsUsed: [] };
   }
 }
 
@@ -468,23 +563,24 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
       console.log('[MESSAGE HANDLER] Calling executeMastraAgent...');
       
       // Bridge to our existing Mastra agent with persistent conversation context
-      const response = await executeMastraAgent(message, state, context);
+      const agentResult = await executeMastraAgent(message, state, context);
       
-      console.log('[MESSAGE HANDLER] Got response from agent, length:', response?.length || 0);
+      console.log('[MESSAGE HANDLER] Got response from agent, length:', agentResult.responseText?.length || 0);
             
       // Store additional context for future turns (conversation history is managed in executeMastraAgent)
       if (!state.workbookContext) {
         state.workbookContext = {};
       }
       state.workbookContext.lastQuery = message;
-      state.workbookContext.lastResults = response;
+      state.workbookContext.lastResults = agentResult.responseText;
       
       // Log bot message exchange
       const userId = context.activity.from?.id || 'unknown';
-      console.log('[BOT MESSAGE]', { userId, messageLength: message.length, responseLength: response.length });
+      console.log('[BOT MESSAGE]', { userId, messageLength: message.length, responseLength: agentResult.responseText.length, toolsUsed: agentResult.toolsUsed });
             
       // Enhanced response with Adaptive Cards when appropriate
-      await enhanceResponseWithAdaptiveCards(response, context);
+      const primaryTool = agentResult.toolsUsed.length > 0 ? agentResult.toolsUsed[0] : undefined;
+      await enhanceResponseWithAdaptiveCards(agentResult.responseText, context, message, primaryTool);
 
     } catch (error) {
       console.error('Teams message handler error', { error });
@@ -504,14 +600,17 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
   // Handle "View All Contacts" button
   app.adaptiveCards.actionSubmit('view_all_contacts', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
     console.log('[ADAPTIVE CARDS] View all contacts clicked:', data);
-    await context.sendActivity('Generating CSV export of all contacts...');
     
-    // Re-run the last query but request CSV export specifically
-    const lastQuery = state.workbookContext?.lastQuery;
-    if (lastQuery) {
-      const csvQuery = `Export all results from this search to CSV: ${lastQuery}`;
-      const response = await executeMastraAgent(csvQuery, state, context);
-      await enhanceResponseWithAdaptiveCards(response, context);
+    // Get the original query from the card data
+    const cardData = data as { originalQuery?: string; totalCount?: number };
+    const originalQuery = cardData.originalQuery || state.workbookContext?.lastQuery;
+    
+    if (originalQuery) {
+      await context.sendActivity('Generating CSV export of all contacts...');
+      const csvQuery = `Export all results from this search to CSV: ${originalQuery}`;
+      const agentResult = await executeMastraAgent(csvQuery, state, context);
+      const primaryTool = agentResult.toolsUsed.length > 0 ? agentResult.toolsUsed[0] : undefined;
+      await enhanceResponseWithAdaptiveCards(agentResult.responseText, context, originalQuery, primaryTool);
     } else {
       await context.sendActivity('Please repeat your search to export all contacts.');
     }
@@ -520,14 +619,17 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
   // Handle "View All Companies" button  
   app.adaptiveCards.actionSubmit('view_all_companies', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
     console.log('[ADAPTIVE CARDS] View all companies clicked:', data);
-    await context.sendActivity('Generating CSV export of all companies...');
     
-    // Re-run the last query but request CSV export specifically
-    const lastQuery = state.workbookContext?.lastQuery;
-    if (lastQuery) {
-      const csvQuery = `Export all results from this search to CSV: ${lastQuery}`;
-      const response = await executeMastraAgent(csvQuery, state, context);
-      await enhanceResponseWithAdaptiveCards(response, context);
+    // Get the original query from the card data
+    const cardData = data as { originalQuery?: string; totalCount?: number };
+    const originalQuery = cardData.originalQuery || state.workbookContext?.lastQuery;
+    
+    if (originalQuery) {
+      await context.sendActivity('Generating CSV export of all companies...');
+      const csvQuery = `Export all results from this search to CSV: ${originalQuery}`;
+      const agentResult = await executeMastraAgent(csvQuery, state, context);
+      const primaryTool = agentResult.toolsUsed.length > 0 ? agentResult.toolsUsed[0] : undefined;
+      await enhanceResponseWithAdaptiveCards(agentResult.responseText, context, originalQuery, primaryTool);
     } else {
       await context.sendActivity('Please repeat your search to export all companies.');
     }
@@ -539,8 +641,8 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
     const companyName = (data as { companyName?: string })?.companyName;
     if (companyName) {
       await context.sendActivity(`Getting details for ${companyName}...`);
-      const response = await executeMastraAgent(`Show me detailed information about the company "${companyName}"`, state, context);
-      await context.sendActivity(response);
+      const agentResult = await executeMastraAgent(`Show me detailed information about the company "${companyName}"`, state, context);
+      await context.sendActivity(agentResult.responseText);
     } else {
       await context.sendActivity('Company information not available.');
     }
@@ -556,15 +658,16 @@ export async function configureTeamsBotHandlers(app: Application<WorkbookTurnSta
   app.adaptiveCards.actionSubmit('export_data_quality', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
     console.log('[ADAPTIVE CARDS] Export data quality clicked:', data);
     await context.sendActivity('Generating data quality report...');
-    const response = await executeMastraAgent('Export a comprehensive data quality report to CSV', state, context);
-    await enhanceResponseWithAdaptiveCards(response, context);
+    const agentResult = await executeMastraAgent('Export a comprehensive data quality report to CSV', state, context);
+    const primaryTool = agentResult.toolsUsed.length > 0 ? agentResult.toolsUsed[0] : undefined;
+    await enhanceResponseWithAdaptiveCards(agentResult.responseText, context, 'Export a comprehensive data quality report to CSV', primaryTool);
   });
 
   // Handle data quality recommendations button
   app.adaptiveCards.actionSubmit('data_quality_recommendations', async (context: TurnContext, state: WorkbookTurnState, data: unknown) => {
     console.log('[ADAPTIVE CARDS] Data quality recommendations clicked:', data);
-    const response = await executeMastraAgent('Show me data quality improvement recommendations', state, context);
-    await context.sendActivity(response);
+    const agentResult = await executeMastraAgent('Show me data quality improvement recommendations', state, context);
+    await context.sendActivity(agentResult.responseText);
   });
 
   // Add logging for debugging - using conversationUpdate as a generic activity handler
