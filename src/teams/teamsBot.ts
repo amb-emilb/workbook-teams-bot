@@ -21,6 +21,7 @@ import { createWorkbookAgent } from '../agent/workbookAgent.js';
 import { Agent } from '@mastra/core/agent';
 import { keyVaultService } from '../services/keyVault.js';
 import { sanitizeInput, detectPromptInjection, validateSearchQuery } from '../utils/inputValidation.js';
+import { MemoryInvestigator } from '../utils/memoryInvestigation.js';
 
 import { ResponseParser, EnhancedResponseParser, ResponseContext, createDownloadCard, createCompanyResultsCard, createContactResultsCard, createDatabaseOverviewCard, createPortfolioAnalysisCard, createGeographicResultsCard, createRelationshipMappingCard } from './adaptiveCards.js';
 
@@ -496,6 +497,15 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       });
     }
     
+    // Phase 7B: SYSTEMATIC INVESTIGATION - Add detailed logging before agent generation
+    MemoryInvestigator.logMemoryEntry(enhancedMessage, context.activity.from?.id);
+    MemoryInvestigator.logGenerationFlow('BEFORE_GENERATE', {
+      message: enhancedMessage,
+      threadId,
+      resourceId,
+      timestamp: new Date().toISOString()
+    });
+
     // Execute our existing Mastra agent with native memory system
     // User context is maintained through threadId and resourceId, not in the message
     // Use enhanced message for follow-ups, or original sanitized message for regular queries
@@ -503,6 +513,18 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       threadId,
       resourceId
     });
+
+    // Phase 7B: SYSTEMATIC INVESTIGATION - Log response details
+    MemoryInvestigator.logGenerationFlow('AFTER_GENERATE', {
+      toolsUsed: response.toolCalls?.length || 0,
+      responseLength: response.text?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Critical investigation: Log tool selection behavior
+    const availableTools = Object.keys(await import('../agent/tools/index.js').then(m => m.getAllTools()));
+    const usedTools = response.toolCalls?.map(tc => tc.toolName) || [];
+    MemoryInvestigator.logToolSelection(enhancedMessage, availableTools, usedTools);
     
     // Log memory state after generation
     console.log('[MEMORY STATE] After generation', {
