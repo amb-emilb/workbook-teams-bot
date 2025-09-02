@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create data quality analysis tool for Workbook CRM
@@ -88,6 +89,9 @@ export function createDataQualityTool(workbookClient: WorkbookClient) {
         } = context;
       
         console.log(`Starting data quality analysis (${analysisType})...`);
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`data quality ${analysisType}`, 'dataQualityTool');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();

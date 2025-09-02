@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create bulk operations tool for mass updates and batch operations
@@ -83,6 +84,9 @@ export function createBulkOperationsTool(workbookClient: WorkbookClient) {
           confirmationRequired = false,
           searchCriteria 
         } = context;
+
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`bulk ${operation}`, 'bulkOperationsTool');
 
         // Auto-require confirmation for destructive operations affecting multiple resources
         const isDestructiveOperation = ['deactivate', 'updateEmail', 'updateFolder'].includes(operation);

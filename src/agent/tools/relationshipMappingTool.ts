@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, RelationshipService } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create relationship mapping tool for visualizing company hierarchies and connections
@@ -94,6 +95,9 @@ export function createRelationshipMappingTool(workbookClient: WorkbookClient) {
         } = context;
       
         console.log('🗺️ Starting relationship mapping...');
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData('relationship mapping', 'relationshipMappingTool');
       
         // Initialize relationship service
         const relationshipService = new RelationshipService(workbookClient);

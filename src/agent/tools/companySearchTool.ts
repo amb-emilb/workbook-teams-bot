@@ -6,6 +6,7 @@ import { cacheManager } from '../../services/base/cache.js';
 import { Resource, Contact } from '../../types/workbook.types.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Handle bulk hierarchy mode - retrieve all companies with hierarchical data
@@ -286,6 +287,9 @@ export function createCompanySearchTool(workbookClient: WorkbookClient) {
     execute: async ({ context }) => {
       try {
         const { companyName, responsibleEmployee, includeHierarchy = true, multiple = false, bulkMode = false } = context;
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`company search ${companyName || responsibleEmployee || 'bulk'}`, 'companySearchTool');
         
         // Handle bulk mode - bypass normal validation
         if (bulkMode) {

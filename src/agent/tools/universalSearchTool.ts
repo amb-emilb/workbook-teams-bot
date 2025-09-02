@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create universal search tool that intelligently routes queries to appropriate search methods
@@ -63,6 +64,9 @@ export function createUniversalSearchTool(workbookClient: WorkbookClient) {
         // Handle empty or very generic queries
         const effectiveQuery = query?.trim() || 'all';
         console.log(`Universal search for: "${effectiveQuery}" (type: ${searchType})`);
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`universal search ${effectiveQuery}`, 'universalSearchTool');
       
         let searchStrategy = '';
         let results: Resource[] = [];

@@ -117,7 +117,7 @@ The Workbook CRM uses specific TypeId numbers to categorize resources:
 - **10 = Contact Person** (Contact people at client companies)
 
 **When users mention:**
-- "Companies" → Use resource types [1, 3, 6] (Company + Clients + Prospects)
+- "Companies" → Use resource types [3] (Clients)
 - "Clients" → Use resource type [3] (Clients only)
 - "Prospects" → Use resource type [6] (Prospects only)
 - "Employees" → Use resource type [2] (Internal employees)
@@ -200,6 +200,8 @@ The Workbook CRM uses specific TypeId numbers to categorize resources:
 3. Run data-quality-analysis periodically to identify issues
 4. Use portfolio-analysis to balance workloads
 5. Always preview bulk operations before executing
+
+🚨 CRITICAL DATA FRESHNESS RULE: For ANY query about statistics, counts, totals, database overviews, job operations, update/delete operations or current data - ALWAYS execute tools regardless of memory. NEVER use remembered statistical information. Statistical data changes frequently and must always be fresh from tools.
 
 ## CRITICAL: Data Accuracy Requirements:
 - ONLY report numbers and data that come directly from tool outputs

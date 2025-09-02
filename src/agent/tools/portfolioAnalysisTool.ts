@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create portfolio analysis tool for analyzing employee workload and client distribution
@@ -83,6 +84,9 @@ export function createPortfolioAnalysisTool(workbookClient: WorkbookClient) {
         } = context;
       
         console.log('� Starting portfolio analysis...');
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData('portfolio analysis', 'portfolioAnalysisTool');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();

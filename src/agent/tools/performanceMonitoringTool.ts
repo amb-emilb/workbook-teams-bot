@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { cacheManager } from '../../services/base/cache.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -221,7 +222,10 @@ export function createPerformanceMonitoringTool(workbookClient: WorkbookClient) 
   
     execute: async ({ context }) => {
       const startTime = Date.now();
-      console.log('Š Performance Monitoring Tool - Starting analysis...', context);
+      console.log('ï¿½ Performance Monitoring Tool - Starting analysis...', context);
+      
+      // Use universal freshness detection (Phase 7A)
+      ensureFreshData('performance monitoring analysis', 'performanceMonitoringTool');
     
       try {
         // Handle legacy 'action' parameter mapping to new 'monitoringType' schema

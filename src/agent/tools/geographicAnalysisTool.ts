@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource, ToolParameters } from '../../services/index.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 
 
@@ -182,9 +183,12 @@ export function createGeographicAnalysisTool(workbookClient: WorkbookClient) {
   
     execute: async ({ context }) => {
       const startTime = Date.now();
-      console.log('� Geographic Analysis Tool - Starting analysis...', context);
+      console.log('🌍 Geographic Analysis Tool - Starting analysis...', context);
     
       try {
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData('geographic analysis', 'geographicAnalysisTool');
+        
         // Context is already validated by the tool framework, no need for manual validation
         // Just use the context directly
       

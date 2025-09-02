@@ -264,9 +264,110 @@ Based on completed Phase 2A testing and validation:
 
 **Testing Status**: ⏳ **PENDING** - Full validation required to measure improved success rates
 
-### 🎯 Phase 7: Final Validation and Optimization - **PLANNED**
-- [ ] Complete integration testing with all tool improvements (CRM + Job Management)
-- [ ] Performance optimization of data fetching across all domains
-- [ ] Cache improvements for complex queries
-- [ ] Final validation against success criteria
-- [ ] **Success Criteria**: Overall system success rate >85% across all business domains
+---
+
+# Phase 7: Memory & Data Freshness Remediation
+
+**Status**: 🚨 **CRITICAL ISSUE IDENTIFIED** - September 2, 2025  
+**Priority**: **URGENT** - Affects all production Teams bot queries  
+
+## Problem Statement
+
+**CRITICAL ISSUE**: Teams bot serves stale/incorrect data due to Mastra memory system contamination, while local development shows correct data. This creates a fundamental reliability issue where users cannot trust the bot's statistical information.
+
+### Evidence of Data Corruption:
+- **Teams Production**: "Total: 3,615, Active: 6" ❌ (Wrong data with "approximate" language)
+- **Local Development**: "Total: 3,745, Active: 3,617" ✅ (Correct tool-generated data)
+- **Application Insights**: Shows `toolsUsed: []` despite tools actually working
+
+### Root Cause Analysis:
+1. **Memory Contamination**: PostgreSQL memory database contains stale conversation context
+2. **Tool Bypass**: Mastra memory system returns old statistical data instead of calling fresh tools
+3. **Cache System Bypass**: Memory responses skip both tool execution AND cache updates
+4. **Environment Inconsistency**: Production (PostgreSQL) vs Development (LibSQL) memory states
+
+## Implementation Plan
+
+### **Phase 7A: Immediate Fix** (Hours)
+**Target**: Force fresh tool execution for statistical queries
+
+- [x] **Agent Instruction Override**:
+   ```typescript
+   // Add to workbookAgent.ts instructions:
+   "🚨 CRITICAL DATA FRESHNESS RULE: For ANY query about statistics, 
+   counts, totals, database overviews, job operations, update/delete operations or current data - ALWAYS execute 
+   tools regardless of memory. NEVER use remembered statistical information.
+   Statistical data changes frequently and must always be fresh from tools."
+   ```
+
+- [x] **Implement Universal Freshness Detection**:
+   ```typescript
+   // Create shared freshness utility in src/utils/freshnessDetection.ts
+   // Used by ALL 15+ tools to detect statistical/data queries
+   export function requiresFreshData(query: string): boolean {
+     const freshnessKeywords = [
+       'overview', 'statistics', 'database', 'stats', 'count', 'total', 
+       'how many', 'show me', 'give me', 'list', 'all', 'current', 'show'
+     ];
+     return freshnessKeywords.some(keyword => query.toLowerCase().includes(keyword));
+   }
+   // Apply to ALL tools, not just getContactStatsTool
+   ```
+
+- [ ] **Test Teams bot statistical queries return correct data**
+- [ ] **Verify Application Insights shows tool usage for statistical queries**
+
+**Phase 7A STATUS: COMPLETED ✅**
+All 15 tools systematically updated with universal freshness detection.
+
+### **Phase 7B: Memory Architecture Fix** (Days)
+**Target**: Separate conversational memory from data queries
+
+- [ ] **Memory Domain Separation**:
+   - [ ] Configure separate memory domains for user context vs statistical data
+   - [ ] Implement TTL (Time-To-Live) for statistical information in memory
+   - [ ] Preserve user preferences while invalidating data queries
+
+- [ ] **Tool Execution Logging**:
+   - [ ] Add comprehensive logging to track when memory bypasses tools
+   - [ ] Monitor tool invocation rates in production vs development
+   - [ ] Alert system for statistical query patterns
+
+### **Phase 7C: Production Memory Reset** (Maintenance Window)
+**Target**: Clean contaminated memory state
+
+- [ ] **Selective Memory Cleanup**:
+   - [ ] Identify and purge stale statistical conversations from PostgreSQL
+   - [ ] Preserve user preferences and valid conversation context
+   - [ ] Implement backup/restore process for memory state
+
+- [ ] **Memory Health Monitoring**:
+   - [ ] Implement memory freshness metrics
+   - [ ] Automated detection of stale statistical data
+   - [ ] Regular memory hygiene processes
+
+## Success Metrics
+
+### **Immediate (Phase 7A)**:
+- ✅ Teams bot returns same data as local development
+- ✅ Application Insights shows consistent tool usage
+- ✅ Elimination of "approximate" language in statistical responses
+
+### **Short-term (Phase 7B)**:
+- ✅ Memory system preserves user context without data staleness
+- ✅ Tool invocation rates consistent across environments
+- ✅ Cache system effectiveness maintained
+
+### **Long-term (Phase 7C)**:
+- ✅ Production memory health metrics within acceptable ranges
+- ✅ Automated prevention of memory contamination
+- ✅ Reliable statistical data accuracy across all environments
+
+## Risk Assessment
+
+**HIGH PRIORITY**: This issue affects user trust and data reliability across the entire production system. Statistical queries are core functionality and must provide accurate, current information.
+
+**Immediate Risk**: Users making business decisions based on incorrect data from Teams bot  
+**Technical Risk**: Memory contamination could spread to other query types  
+**User Impact**: Complete loss of confidence in bot reliability
+

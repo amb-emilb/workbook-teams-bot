@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { MappedDepartmentProfitSplit, MappedDepartment } from '../../types/job-api.types.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create job financials tool for cost analysis and profitability tracking
@@ -221,6 +222,9 @@ export function createJobFinancialsTool(workbookClient: WorkbookClient) {
         } = context;
 
         console.log(`💰 Job Financials Tool - Operation: ${operation}`, context);
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`job financials ${operation}`, 'jobFinancialsTool');
 
         const currencyName = getCurrencyName(currencyId || 1);
 

@@ -6,6 +6,7 @@ import { fileStorageService } from '../../routes/fileRoutes.js';
 import { ExportContext, EnrichedResource } from '../../types/tool-results.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 
 /**
@@ -130,7 +131,10 @@ export function createEnhancedExportTool(workbookClient: WorkbookClient) {
     }),
   
     execute: async ({ context }) => {
-      console.log('� Enhanced Export Tool - Starting export...', context);
+      console.log('📤 Enhanced Export Tool - Starting export...', context);
+      
+      // Use universal freshness detection (Phase 7A) - Critical for export data accuracy
+      ensureFreshData('export data', 'enhancedExportTool');
     
       try {
         // Context is already validated by the tool framework, no need for manual validation

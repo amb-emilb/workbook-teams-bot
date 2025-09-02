@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { ResourceTypes, ResourceTypeNames } from '../../constants/resourceTypes.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create advanced multi-criteria filtering tool for Workbook CRM resources
@@ -90,7 +91,10 @@ export function createAdvancedFilterTool(workbookClient: WorkbookClient) {
           limit = 0 
         } = context;
       
-        console.log('� Starting advanced filter search...');
+        console.log('🔍 Starting advanced filter search...');
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`advanced filter ${resourceType || 'all'}`, 'advancedFilterTool');
       
         // Get complete dataset
         const allResourcesResponse = await workbookClient.resources.getAllResourcesComplete();

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { JobStatus } from '../../types/workbook.types.js';
 import { MappedJobTeamMember, MappedJobType } from '../../types/job-api.types.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create job management tool for core job operations
@@ -142,6 +143,9 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
         } = context;
 
         console.log(`🏢 Job Management Tool - Operation: ${operation}`, context);
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`job management ${operation}`, 'jobManagementTool');
 
         switch (operation) {
         case 'create': {

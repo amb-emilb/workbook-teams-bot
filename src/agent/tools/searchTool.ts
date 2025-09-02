@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
 import { cacheManager } from '../../services/base/cache.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create search people tool for the Workbook CRM system
@@ -55,15 +56,8 @@ export function createSearchContactsTool(workbookClient: WorkbookClient) {
       
         console.log(`Searching people with query: "${query || 'all'}", limit: ${limit}`);
         
-        // Auto-detect freshness keywords and purge cache if needed
-        const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
-        const queryText = (query || '').toLowerCase();
-        const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
-        
-        if (needsFreshData) {
-          console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", flushing entire cache...`);
-          cacheManager.flush();
-        }
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(query || 'all', 'searchContactsTool');
       
         let resourcesResponse;
       
@@ -202,17 +196,8 @@ export function createGetContactStatsTool(workbookClient: WorkbookClient) {
         const { query } = context || {};
         console.log(`Getting database statistics... ${query ? `(context: "${query}")` : ''}`);
         
-        // Auto-detect freshness keywords and flush cache if needed
-        if (query) {
-          const freshnessKeywords = ['fresh', 'new', 'latest', 'updated', 'current', 'recent', 'purge', 'clear', 'refresh', 'reload', 'real-time', 'live', 'now', 'today'];
-          const queryText = query.toLowerCase();
-          const needsFreshData = freshnessKeywords.some(keyword => queryText.includes(keyword));
-          
-          if (needsFreshData) {
-            console.log(`[AUTO CACHE PURGE] Detected freshness keywords in "${query}", flushing entire cache...`);
-            cacheManager.flush();
-          }
-        }
+        // Use universal freshness detection (Phase 7A) - CRITICAL for database overviews
+        ensureFreshData(query || 'overview', 'getContactStatsTool');
       
         const statsResponse = await workbookClient.resources.getStats();
       

@@ -2,6 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { MappedCapacityVisualization } from '../../types/job-api.types.js';
+import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**
  * Create resource planning tool for capacity planning and resource allocation
@@ -184,6 +185,9 @@ export function createResourcePlanningTool(workbookClient: WorkbookClient) {
         } = context;
 
         console.log(`👥 Resource Planning Tool - Operation: ${operation}`, context);
+        
+        // Use universal freshness detection (Phase 7A)
+        ensureFreshData(`resource planning ${operation}`, 'resourcePlanningTool');
 
         switch (operation) {
         case 'get_capacity': {
