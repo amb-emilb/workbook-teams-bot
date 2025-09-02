@@ -2,7 +2,6 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient, Resource } from '../../services/index.js';
 import { ResourceTypes } from '../../constants/resourceTypes.js';
-import { cacheManager } from '../../services/base/cache.js';
 import { ensureFreshData } from '../../utils/freshnessDetection.js';
 
 /**

@@ -14,7 +14,7 @@ import { cacheManager } from '../services/base/cache.js';
  * @returns boolean - true if fresh data is required
  */
 export function requiresFreshData(query: string): boolean {
-  if (!query) return false;
+  if (!query) {return false;}
   
   const queryLower = query.toLowerCase();
   
@@ -53,7 +53,7 @@ export function requiresFreshData(query: string): boolean {
 export function ensureFreshData(query: string, toolName: string): void {
   if (requiresFreshData(query)) {
     console.log(`[FRESHNESS DETECTION] Query "${query}" requires fresh data for ${toolName}`);
-    console.log(`[AUTO CACHE PURGE] Flushing cache to ensure fresh data...`);
+    console.log('[AUTO CACHE PURGE] Flushing cache to ensure fresh data...');
     cacheManager.flush();
   }
 }
