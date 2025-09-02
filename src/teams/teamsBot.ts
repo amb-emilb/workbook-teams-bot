@@ -515,6 +515,16 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     });
 
     // Phase 7B: SYSTEMATIC INVESTIGATION - Log response details
+    console.log('[MASTRA RESPONSE DEBUG] Full response object keys:', Object.keys(response || {}));
+    console.log('[MASTRA RESPONSE DEBUG] Response structure:', {
+      hasText: !!response?.text,
+      hasToolCalls: !!response?.toolCalls,
+      toolCallsType: typeof response?.toolCalls,
+      toolCallsLength: response?.toolCalls?.length || 'N/A',
+      toolCallsIsArray: Array.isArray(response?.toolCalls),
+      allProperties: Object.getOwnPropertyNames(response || {})
+    });
+    
     MemoryInvestigator.logGenerationFlow('AFTER_GENERATE', {
       toolsUsed: response.toolCalls?.length || 0,
       responseLength: response.text?.length || 0,
