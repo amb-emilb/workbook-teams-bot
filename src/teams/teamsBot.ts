@@ -239,12 +239,15 @@ async function enhanceResponseWithAdaptiveCards(responseText: string, context: T
     
     switch (cardType) {
     case 'database-overview': {
+      // Parse the response text to extract database overview data
       const overview = EnhancedResponseParser.parseDatabaseOverview(responseText);
       if (overview) {
-        console.log('[ADAPTIVE CARDS] Creating database overview card');
+        console.log('[ADAPTIVE CARDS] Creating database overview card from parsed text:', overview.resourceBreakdown.length, 'resource types');
         const overviewCard = createDatabaseOverviewCard(overview);
         await context.sendActivity({ attachments: [overviewCard] });
         return;
+      } else {
+        console.log('[ADAPTIVE CARDS] Could not parse database overview from text');
       }
       break;
     }
@@ -346,6 +349,7 @@ async function enhanceResponseWithAdaptiveCards(responseText: string, context: T
 interface AgentExecutionResult {
   responseText: string;
   toolsUsed: string[];
+  toolResponses?: Record<string, unknown>;
 }
 
 async function executeMastraAgent(message: string, state: WorkbookTurnState, context: TurnContext): Promise<AgentExecutionResult> {
@@ -398,7 +402,7 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Check for prompt injection attempts
     if (detectPromptInjection(message)) {
       console.warn('SECURITY: Potential prompt injection detected', { message });
-      return { responseText: 'Your request contains invalid patterns. Please rephrase your query.', toolsUsed: [] };
+      return { responseText: 'Your request contains invalid patterns. Please rephrase your query.', toolsUsed: [], toolResponses: {} };
     }
 
     // Sanitize the input
@@ -408,7 +412,7 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     const queryValidation = validateSearchQuery(sanitizedMessage);
     if (!queryValidation.valid) {
       console.warn('Invalid query', { error: queryValidation.error });
-      return { responseText: `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`, toolsUsed: [] };
+      return { responseText: `Invalid query: ${queryValidation.error}. Please try again with a valid search term.`, toolsUsed: [], toolResponses: {} };
     }
 
     console.log('Input validated and sanitized');
@@ -510,12 +514,17 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
     // Extract the response text and tool information from Mastra response
     const responseText = response?.text || 'I completed the task successfully.';
     let toolsUsed: string[] = [];
+    const toolResponses: Record<string, unknown> = {};
     
     // Extract tool usage information from Mastra toolCalls
     if (response?.toolCalls && Array.isArray(response.toolCalls)) {
       toolsUsed = response.toolCalls
         .map(tc => tc.toolName)
         .filter(Boolean);
+        
+      // Note: Tool response data is not available in toolCalls structure
+      // We'll need to extract it from the response text or use an alternative approach
+      console.log('[TOOL RESPONSE] Tool calls detected:', toolsUsed);
     }
 
     const duration = Date.now() - startTime;
@@ -529,12 +538,12 @@ async function executeMastraAgent(message: string, state: WorkbookTurnState, con
       toolsUsed: toolsUsed 
     });
     
-    return { responseText, toolsUsed: [...new Set(toolsUsed)] };
+    return { responseText, toolsUsed: [...new Set(toolsUsed)], toolResponses };
 
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error('Error bridging to Mastra agent', { error, duration });
-    return { responseText: 'I encountered an error while processing your request. Please try again.', toolsUsed: [] };
+    return { responseText: 'I encountered an error while processing your request. Please try again.', toolsUsed: [], toolResponses: {} };
   }
 }
 

@@ -6,7 +6,7 @@ export abstract class BaseService {
 
   constructor(config: WorkbookConfig) {
     this.config = {
-      timeout: 30000, // 30 second default timeout
+      timeout: 120000, // 120 second timeout for large datasets
       ...config
     };
   }
@@ -226,10 +226,186 @@ export abstract class BaseService {
   }
 
   /**
+   * Pure POST method for direct payload posting
+   */
+  protected async purePost<T = unknown>(endpoint: string, payload?: unknown): Promise<ServiceResponse<T>> {
+    return new Promise((resolve) => {
+      const requestBody = payload ? JSON.stringify(payload) : '';
+      
+      const headers: Record<string, string | number> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Content-Length': Buffer.byteLength(requestBody)
+      };
+
+      const options: https.RequestOptions = {
+        hostname: this.config.baseUrl,
+        path: `/api/json/reply/${endpoint}`,
+        method: 'POST',
+        headers,
+        timeout: this.config.timeout
+      };
+
+      const req = https.request(options, (res) => {
+        const chunks: Buffer[] = [];
+        
+        res.on('data', (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        
+        res.on('end', () => {
+          try {
+            const data = Buffer.concat(chunks).toString('utf8');
+            
+            if (res.statusCode === 200 || res.statusCode === 201) {
+              const parsedData = data ? JSON.parse(data) : undefined;
+              resolve({
+                success: true,
+                data: parsedData as T,
+                cached: false
+              });
+              return;
+            }
+
+            if (res.statusCode === 204) {
+              resolve({
+                success: true,
+                data: undefined as T,
+                cached: false
+              });
+              return;
+            }
+
+            const errorMessage = data ? data.slice(0, 200) : `HTTP ${res.statusCode}`;
+            resolve({
+              success: false,
+              error: `API Error ${res.statusCode}: ${errorMessage}`
+            });
+
+          } catch (parseError) {
+            resolve({
+              success: false,
+              error: `Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+            });
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        resolve({
+          success: false,
+          error: `Network error: ${error.message}`
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          success: false,
+          error: 'Request timeout'
+        });
+      });
+      
+      if (requestBody) {
+        req.write(requestBody);
+      }
+      req.end();
+    });
+  }
+
+  /**
    * Helper method for PATCH requests (which Workbook implements as PATCH with Patch parameter)
    */
   protected async patch<T = unknown>(endpoint: string, patchData: unknown): Promise<ServiceResponse<T>> {
     return this.request<T>(endpoint, 'PATCH', { Patch: patchData });
+  }
+
+  /**
+   * Pure PATCH method for direct patch operations
+   */
+  protected async purePatch<T = unknown>(endpoint: string, payload?: unknown): Promise<ServiceResponse<T>> {
+    return new Promise((resolve) => {
+      const requestBody = payload ? JSON.stringify(payload) : '';
+      
+      const headers: Record<string, string | number> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+        'Content-Length': Buffer.byteLength(requestBody)
+      };
+
+      const options: https.RequestOptions = {
+        hostname: this.config.baseUrl,
+        path: `/api/json/reply/${endpoint}`,
+        method: 'PATCH',
+        headers,
+        timeout: this.config.timeout
+      };
+
+      const req = https.request(options, (res) => {
+        const chunks: Buffer[] = [];
+        
+        res.on('data', (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        
+        res.on('end', () => {
+          try {
+            const data = Buffer.concat(chunks).toString('utf8');
+            
+            if (res.statusCode === 200) {
+              const parsedData = data ? JSON.parse(data) : undefined;
+              resolve({
+                success: true,
+                data: parsedData as T,
+                cached: false
+              });
+              return;
+            }
+
+            if (res.statusCode === 204) {
+              resolve({
+                success: true,
+                data: undefined as T,
+                cached: false
+              });
+              return;
+            }
+
+            const errorMessage = data ? data.slice(0, 200) : `HTTP ${res.statusCode}`;
+            resolve({
+              success: false,
+              error: `API Error ${res.statusCode}: ${errorMessage}`
+            });
+
+          } catch (parseError) {
+            resolve({
+              success: false,
+              error: `Failed to parse response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+            });
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        resolve({
+          success: false,
+          error: `Network error: ${error.message}`
+        });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({
+          success: false,
+          error: 'Request timeout'
+        });
+      });
+      
+      if (requestBody) {
+        req.write(requestBody);
+      }
+      req.end();
+    });
   }
 
   /**

@@ -2,7 +2,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
 import { JobStatus } from '../../types/workbook.types.js';
-import { MappedJobTeamMember } from '../../types/job-api.types.js';
+import { MappedJobTeamMember, MappedJobType } from '../../types/job-api.types.js';
 
 /**
  * Create job management tool for core job operations
@@ -21,15 +21,14 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
     - Job status tracking and monitoring
     
     DO NOT USE for:
-    - Task-level operations (use projectPlanningTool instead)
-    - Time tracking or expenses (use timeTrackingTool instead)
     - Resource capacity planning (use resourcePlanningTool instead)
     - Financial analysis (use jobFinancialsTool instead)
+    - Advanced resource allocation analysis (use resourcePlanningTool instead)
     
     This tool focuses on high-level job management, not detailed project execution.`,
 
     inputSchema: z.object({
-      operation: z.enum(['create', 'update', 'get', 'list', 'assign_team', 'get_team'])
+      operation: z.enum(['create', 'update', 'patch', 'get', 'list', 'assign_team', 'get_team'])
         .describe('Operation to perform on jobs'),
       
       // Job identification
@@ -68,6 +67,11 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
         .optional()
         .describe('Array of resource IDs to assign to the job team'),
       
+      // Advanced patch fields (for patch operation)
+      patchFields: z.record(z.any())
+        .optional()
+        .describe('Key-value pairs of job fields to patch (for patch operation - allows updating any job field)'),
+        
       // List filters
       activeOnly: z.boolean()
         .default(true)
@@ -132,6 +136,7 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
           endDate,
           description,
           teamMemberIds,
+          patchFields,
           activeOnly,
           limit
         } = context;
@@ -149,6 +154,15 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
           }
 
           console.log('📝 Creating new job with API:', { jobName, clientId, projectId, responsibleResourceId });
+
+          // Get available job types for validation and user guidance using new JobTypesRequest API
+          const jobTypesResponse = await workbookClient.jobs.getJobTypes(true, 1);
+          let availableJobTypes: string[] = [];
+          if (jobTypesResponse.success && jobTypesResponse.data) {
+            const jobTypes = jobTypesResponse.data as MappedJobType[];
+            availableJobTypes = jobTypes.map(jt => `${jt.name} (ID: ${jt.id})`);
+            console.log(`📋 Available job types for creation: ${availableJobTypes.join(', ')}`);
+          }
 
           const createResponse = await workbookClient.jobs.createJob({
             name: jobName,
@@ -181,10 +195,15 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
 
           const jobId = 'jobId' in createResponse.data ? createResponse.data.jobId : createResponse.data.JobId;
           
+          // Include job types information in success message
+          const jobTypesInfo = availableJobTypes.length > 0 
+            ? `\n\n📋 Available job types: ${availableJobTypes.join(', ')}`
+            : '';
+          
           return {
             success: true,
             operation: 'create',
-            message: `✅ Job "${jobName}" created successfully with ID ${jobId}`,
+            message: `✅ Job "${jobName}" created successfully with ID ${jobId}${jobTypesInfo}`,
             job: {
               id: jobId,
               name: jobName,
@@ -472,11 +491,69 @@ export function createJobManagementTool(workbookClient: WorkbookClient) {
           };
         }
 
+        case 'patch': {
+          if (!jobId) {
+            return {
+              success: false,
+              operation: 'patch',
+              message: 'Job ID is required for patching a job'
+            };
+          }
+
+          if (!patchFields || Object.keys(patchFields).length === 0) {
+            return {
+              success: false,
+              operation: 'patch',
+              message: 'Patch fields are required for patching a job'
+            };
+          }
+
+          console.log(`🔧 Patching job ${jobId} with new JobPatchRequest API:`, patchFields);
+
+          // Use the new enhanced patchJob method from JobService
+          const patchResponse = await workbookClient.jobs.patchJob(jobId, patchFields);
+
+          if (!patchResponse.success) {
+            return {
+              success: false,
+              operation: 'patch',
+              message: `❌ Failed to patch job ${jobId}: ${'error' in patchResponse ? patchResponse.error : 'Unknown error'}`
+            };
+          }
+
+          if (!patchResponse.data) {
+            return {
+              success: false,
+              operation: 'patch',
+              message: `❌ No job patch data received for job ${jobId}`
+            };
+          }
+
+          // Type the response data properly
+          const patchData = patchResponse.data as { jobId: number; jobName: string; message: string };
+          
+          return {
+            success: true,
+            operation: 'patch',
+            message: `✅ Job ${jobId} patched successfully using enhanced JobPatchRequest API`,
+            job: {
+              id: patchData.jobId,
+              name: patchData.jobName,
+              clientId: 0, // Would need additional API call to get full details
+              statusId: 0,
+              statusName: 'Updated',
+              startDate: '',
+              endDate: '',
+              description: `Patched fields: ${Object.keys(patchFields).join(', ')}`
+            }
+          };
+        }
+
         default:
           return {
             success: false,
             operation: operation,
-            message: `Unknown operation: ${operation}. Supported operations: create, update, get, list, assign_team, get_team`
+            message: `Unknown operation: ${operation}. Supported operations: create, update, patch, get, list, assign_team, get_team`
           };
         }
 

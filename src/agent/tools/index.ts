@@ -37,8 +37,6 @@ async function initializeTools() {
     { createGeographicAnalysisTool },
     { createPerformanceMonitoringTool },
     { createJobManagementTool },
-    { createProjectPlanningTool },
-    { createTimeTrackingTool },
     { createResourcePlanningTool },
     { createJobFinancialsTool }
   ] = await Promise.all([
@@ -55,8 +53,6 @@ async function initializeTools() {
     import('./geographicAnalysisTool.js'),
     import('./performanceMonitoringTool.js'),
     import('./jobManagementTool.js'),
-    import('./projectPlanningTool.js'),
-    import('./timeTrackingTool.js'),
     import('./resourcePlanningTool.js'),
     import('./jobFinancialsTool.js')
   ]);
@@ -84,10 +80,8 @@ async function initializeTools() {
     // Statistics
     getContactStatsTool: createGetContactStatsTool(workbookClient),
     
-    // Job Management tools
+    // Job Management tools (Phase 6 - High Quality, Minimal Set)
     jobManagementTool: createJobManagementTool(workbookClient),
-    projectPlanningTool: createProjectPlanningTool(workbookClient),
-    timeTrackingTool: createTimeTrackingTool(workbookClient),
     resourcePlanningTool: createResourcePlanningTool(workbookClient),
     jobFinancialsTool: createJobFinancialsTool(workbookClient)
   };

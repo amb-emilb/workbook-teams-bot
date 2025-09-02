@@ -18,7 +18,8 @@
       "Bash(npm run test:agent:*)",
       "Bash(npm run lint:*)",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs"
+      "mcp__context7__get-library-docs",
+      "Bash(az monitor app-insights query:*)"
     ],
     "deny": [
       "Bash(rm -rf /)",

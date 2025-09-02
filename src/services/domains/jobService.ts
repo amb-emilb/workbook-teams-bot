@@ -1,7 +1,7 @@
 import { BaseService } from '../base/baseService.js';
 import { WorkbookConfig, ServiceResponse } from '../../types/workbook.types.js';
 import { cacheManager } from '../base/cache.js';
-import { JobTeamMember, TaskResourcePrice, TaskResponse, Activity, TaskInsertResponse, ExpenditureEntry, PriceList, JobCreateResponse, JobPatchResponse, JobSimpleVisualization } from '../../types/job-api.types.js';
+import { JobTeamMember, TaskResourcePrice, TaskResponse, Activity, TaskInsertResponse, ExpenditureEntry, PriceList, JobCreateResponse, JobPatchResponse, JobSimpleVisualization, Tag, Invoice, InvoicePaymentStatus, ExpenditureSummary, DepartmentProfitSplit, JobType, TimeEntryTaskResourceSum, CapacityVisualization, JobPatchPayload, Department } from '../../types/job-api.types.js';
 
 /**
  * JobService - Job management API operations
@@ -88,6 +88,68 @@ export class JobService extends BaseService {
       return { success: true, data, cached: false };
     } catch (error) {
       console.error('Error fetching task resource prices:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get all tasks for a job
+   * API: TasksRequest
+   */
+  async getJobTasks(jobId: number, active: boolean = true) {
+    const cacheKey = `job-tasks-${jobId}-${active}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<TaskResponse[]>('TasksRequest', {
+        Active: active ? 'true' : 'false',
+        JobId: jobId.toString()
+      });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No task data received' };
+      }
+
+      const data = response.data.map((task: TaskResponse) => ({
+        id: task.Id,
+        planId: task.PlanId,
+        phaseNumber: task.PhaseNumber,
+        taskNumber: task.TaskNumber,
+        taskName: task.TaskName,
+        activityId: task.ActivityId,
+        startDate: task.StartDate,
+        workDays: task.WorkDays,
+        endDate: task.EndDate,
+        taskStatus: task.TaskStatus,
+        bookingStatus: task.BookingStatus,
+        milestone: task.Milestone,
+        priorityId: task.PriorityId,
+        supplementaryTextRequested: task.SupplementaryTextRequested,
+        taskColourId: task.TaskColourId,
+        showPublic: task.ShowPublic,
+        createDate: task.CreateDate,
+        createEmployeeId: task.CreateEmployeeId,
+        updateEmployeeId: task.UpdateEmployeeId,
+        updateDate: task.UpdateDate,
+        taskResponsibleResourceId: (task as TaskResponse & { TaskResponsibleResouceId?: number }).TaskResponsibleResouceId, // API typo
+        allowTimeRegistration: task.AllowTimeRegistration,
+        allowUseOffDay: task.AllowUseOffDay,
+        fromExternal: task.FromExternal,
+        billable: task.Billable,
+        bookingLevel: task.BookingLevel
+      }));
+
+      cacheManager.set(cacheKey, data, 300); // 5 minute cache
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching job tasks:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -575,6 +637,520 @@ export class JobService extends BaseService {
       return { success: true, data, cached: false };
     } catch (error) {
       console.error('Error fetching job details:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get all tags
+   * API: TagsRequest
+   */
+  async getTags() {
+    const cacheKey = 'tags-all';
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<Tag[]>('TagsRequest', {});
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No tags data received' };
+      }
+
+      const data = response.data.map((tag: Tag) => ({
+        id: tag.Id,
+        tagId: tag.TagId,
+        tagName: tag.TagName,
+        active: tag.Active,
+        createDate: tag.CreateDate,
+        updateResourceId: tag.UpdateResourceId,
+        updateDate: tag.UpdateDate,
+        color: tag.Color,
+        internal: tag.Internal
+      }));
+
+      cacheManager.set(cacheKey, data, 3600); // 1 hour cache (tags don't change often)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get invoices for a job
+   * API: InvoicesRequest?JobId={id}
+   */
+  async getInvoices(jobId: number) {
+    const cacheKey = `invoices-${jobId}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<Invoice[]>('InvoicesRequest', { JobId: jobId.toString() });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No invoices data received' };
+      }
+
+      const data = response.data.map((invoice: Invoice) => ({
+        id: invoice.Id,
+        number: invoice.Number,
+        typeId: invoice.TypeId,
+        date: invoice.Date,
+        jobId: invoice.JobId,
+        responsibleResourceId: invoice.ResponsibleResourceId,
+        title: invoice.Title,
+        headline: invoice.Headline,
+        debtorId: invoice.DebtorId,
+        debtorLabel: invoice.DebtorLabel,
+        amountNet: invoice.AmountNet,
+        amountVat: invoice.AmountVat,
+        amountTot: invoice.AmountTot,
+        dueDate: invoice.DueDate,
+        paymentStatus: invoice.PaymentStatusForSystemsWithoutFinance,
+        currencyId: invoice.CurrencyId,
+        companyName: invoice.CompanyName
+      }));
+
+      cacheManager.set(cacheKey, data, 300); // 5 minute cache (invoices can change)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get single invoice details
+   * API: InvoiceRequest?Id={invoiceId}
+   */
+  async getInvoice(invoiceId: number) {
+    const cacheKey = `invoice-${invoiceId}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<Invoice>('InvoiceRequest', { Id: invoiceId.toString() });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'Invoice not found' };
+      }
+
+      const invoice = response.data;
+      const data = {
+        id: invoice.Id,
+        number: invoice.Number,
+        typeId: invoice.TypeId,
+        date: invoice.Date,
+        jobId: invoice.JobId,
+        responsibleResourceId: invoice.ResponsibleResourceId,
+        title: invoice.Title,
+        headline: invoice.Headline,
+        debtorId: invoice.DebtorId,
+        debtorLabel: invoice.DebtorLabel,
+        amountNet: invoice.AmountNet,
+        amountVat: invoice.AmountVat,
+        amountTot: invoice.AmountTot,
+        dueDate: invoice.DueDate,
+        paymentStatus: invoice.PaymentStatusForSystemsWithoutFinance,
+        currencyId: invoice.CurrencyId,
+        companyName: invoice.CompanyName,
+        // Include additional detailed fields
+        vatPercent: invoice.VATPercent,
+        printDate: invoice.PrintDate,
+        status: invoice.Status,
+        journalNumber: invoice.JournalNumber,
+        salesDate: invoice.SalesDate
+      };
+
+      cacheManager.set(cacheKey, data, 600); // 10 minute cache (invoice details are stable)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get invoice payment status
+   * API: InvoicePaymentStatusRequest?Id={invoiceId}
+   */
+  async getInvoicePaymentStatus(invoiceId: number) {
+    const cacheKey = `invoice-payment-${invoiceId}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<InvoicePaymentStatus>('InvoicePaymentStatusRequest', { Id: invoiceId.toString() });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'Invoice payment status not found' };
+      }
+
+      const status = response.data;
+      const data = {
+        id: status.Id,
+        companyId: status.CompanyId,
+        jobId: status.JobId,
+        paymentStatusId: status.PaymentStatusId,
+        paymentStatusText: status.PaymentStatusText,
+        paymentStatus: status.PaymentStatus,
+        amount: status.Amount,
+        isoCode: status.IsoCode,
+        latestPaidDate: status.LatestPaidDate
+      };
+
+      cacheManager.set(cacheKey, data, 60); // 1 minute cache (payment status changes frequently)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching invoice payment status:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get expenditure summary with hours and costs
+   * API: ExpenditureSummaryHoursAndCostRequest?JobId={jobId}&ShowInCompanyCurrency=0
+   * This is the KEY endpoint that provides both financial AND resource allocation data
+   */
+  async getExpenditureSummary(jobId: number, showInCompanyCurrency: boolean = false) {
+    const cacheKey = `expenditure-summary-${jobId}-${showInCompanyCurrency}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<ExpenditureSummary[]>('ExpenditureSummaryHoursAndCostRequest', { 
+        JobId: jobId.toString(),
+        ShowInCompanyCurrency: showInCompanyCurrency ? '1' : '0'
+      });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No expenditure summary data received' };
+      }
+
+      const data = response.data.map((summary: ExpenditureSummary) => ({
+        id: summary.Id,
+        jobId: summary.JobId,
+        rowType: summary.RowType,
+        groupNumber: summary.GroupNumber,
+        groupName: summary.GroupName,
+        sortOrder: summary.SortOrder,
+        currencyId: summary.CurrencyId,
+        currencyCode: summary.CurrencyCode,
+        activityId: summary.ActivityId,
+        description: summary.Description,
+        quotedPrice: summary.QuotedPrice,
+        actualHours: summary.ActualHours,
+        actualCosts: summary.ActualCosts,
+        actualPrice: summary.ActualPrice,
+        billed: summary.Billed,
+        unBilled: summary.UnBilled
+      }));
+
+      cacheManager.set(cacheKey, data, 300); // 5 minute cache (summary data can change)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching expenditure summary:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get department profit split visualization - CRITICAL for resource planning and profitability attribution
+   * API: ExpenditureSummaryDepartmentProfitSplitVisualizationRequest
+   */
+  async getDepartmentProfitSplit(jobId: number, showInCompanyCurrency: boolean = false, departmentGrouping: number = 1) {
+    const cacheKey = `dept-profit-split-${jobId}-${showInCompanyCurrency}-${departmentGrouping}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<DepartmentProfitSplit[]>('ExpenditureSummaryDepartmentProfitSplitVisualizationRequest', { 
+        JobId: jobId.toString(),
+        ShowInCompanyCurrency: showInCompanyCurrency ? 'true' : 'false',
+        DepartmentGrouping: departmentGrouping.toString()
+      });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No department profit split data received' };
+      }
+
+      const data = response.data.map((split: DepartmentProfitSplit) => ({
+        id: split.Id,
+        recordType: split.RecordType,
+        departmentType: split.DepartmentType,
+        departmentName: split.DepartmentName,
+        departmentId: split.DepartmentId,
+        currencyId: split.CurrencyId,
+        currencyCode: split.CurrencyCode,
+        priceQuoteShare: split.PriceQuoteShare,
+        priceQuoteSharePercentage: split.PriceQuoteSharePercentage,
+        taskAmount: split.TaskAmount,
+        taskPercentage: split.TaskPercentage,
+        timeShare: split.TimeShare,
+        timePercentage: split.TimePercentage,
+        invoiceShare: split.InvoiceShare,
+        invoicePercentage: split.InvoicePercentage
+      }));
+
+      cacheManager.set(cacheKey, data, 300); // 5 minute cache
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching department profit split:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get all departments
+   * API: DepartmentsRequest
+   */
+  async getDepartments(companyId: number = 1) {
+    const cacheKey = `departments-${companyId}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<Department[]>('DepartmentsRequest', {
+        CompanyId: companyId.toString()
+      });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No departments data received' };
+      }
+
+      const data = response.data.map((dept: Department) => ({
+        id: dept.Id,
+        companyId: dept.CompanyId,
+        name: dept.Name,
+        active: dept.Active
+      }));
+
+      cacheManager.set(cacheKey, data, 3600); // 1 hour cache (departments rarely change)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get available job types for classification
+   * API: JobTypesRequest
+   */
+  async getJobTypes(active: boolean = true, companyId: number = 1) {
+    const cacheKey = `job-types-${active}-${companyId}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return { success: true as const, data: cached, cached: true };
+    }
+
+    try {
+      const response = await this.pureGet<JobType[]>('JobTypesRequest', { 
+        Active: active ? 'true' : 'false',
+        CompanyId: companyId.toString()
+      });
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No job types data received' };
+      }
+
+      const data = response.data.map((jobType: JobType) => ({
+        id: jobType.Id,
+        name: jobType.Name,
+        active: jobType.Active,
+        retainerJob: jobType.RetainerJob,
+        updateDate: jobType.UpdateDate,
+        updatePriceQuote: jobType.UpdatePriceQuote
+      }));
+
+      cacheManager.set(cacheKey, data, 3600); // 1 hour cache (job types rarely change)
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching job types:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get time entry task resource summary - POST bulk method for multiple tasks
+   * API: TimeEntryTaskResourceSumVisualizationRequest[]
+   */
+  async getTimeEntryTaskResourceSum(taskData: Array<{id: number, hasTimeEntry: boolean}>) {
+    try {
+      const payload = taskData.map(task => ({
+        Id: task.id,
+        HasTimeEntry: task.hasTimeEntry
+      }));
+
+      const response = await this.purePost<TimeEntryTaskResourceSum[]>('TimeEntryTaskResourceSumVisualizationRequest[]', payload);
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No time entry data received' };
+      }
+
+      const data = response.data.map((entry: TimeEntryTaskResourceSum) => ({
+        id: entry.Id,
+        resourceId: entry.ResourceId,
+        taskId: entry.TaskId,
+        hoursTimeRegistration: entry.HoursTimeRegistration,
+        done: entry.Done,
+        hasTimeRegistration: entry.HasTimeRegistration
+      }));
+
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching time entry task resource sum:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Get resource capacity visualization - CRITICAL for resource planning
+   * API: CapacityVisualizationMultiRequest
+   */
+  async getCapacityVisualization(references: Array<{resourceId: number, taskId: number}>, options: {
+    includeAbsence?: boolean;
+    includeCurrentHours?: boolean;
+    includeEmptyCapacity?: boolean;
+    periodType?: number;
+  } = {}) {
+    try {
+      const payload = {
+        References: references.map(ref => ({
+          ResourceId: ref.resourceId,
+          TaskId: ref.taskId
+        })),
+        IncludeAbsence: options.includeAbsence ?? true,
+        IncludeCurrentHours: options.includeCurrentHours ?? true,
+        IncludeEmptyCapacity: options.includeEmptyCapacity ?? true,
+        PeriodType: options.periodType ?? 1
+      };
+
+      const response = await this.purePost<CapacityVisualization[]>('CapacityVisualizationMultiRequest', payload);
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No capacity data received' };
+      }
+
+      const data = response.data.map((capacity: CapacityVisualization) => ({
+        referenceId: capacity.ReferenceId,
+        id: capacity.Id,
+        resourceId: capacity.ResourceId,
+        dayDate: capacity.DayDate,
+        capacity: capacity.Capacity,
+        capacityCurrent: capacity.CapacityCurrent,
+        hoursBooked: capacity.HoursBooked,
+        hoursBookedCurrent: capacity.HoursBookedCurrent,
+        totalHoursBooked: capacity.TotalHoursBooked,
+        totalHoursBookedCurrent: capacity.TotalHoursBookedCurrent,
+        totalApprovedHoursBooked: capacity.TotalApprovedHoursBooked,
+        totalApprovedHoursBookedCurrent: capacity.TotalApprovedHoursBookedCurrent,
+        hoursNormal: capacity.HoursNormal,
+        bookingLevel: capacity.BookingLevel,
+        dayType: capacity.DayType,
+        hoursHoliday: capacity.HoursHoliday
+      }));
+
+      return { success: true, data, cached: false };
+    } catch (error) {
+      console.error('Error fetching capacity visualization:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Enhanced job patch method using the new JobPatchRequest functionality
+   * API: JobPatchRequest (PATCH method for any job field)
+   */
+  async patchJob(jobId: number, patchData: Record<string, unknown>) {
+    try {
+      const payload: JobPatchPayload = {
+        Patch: {
+          Id: jobId,
+          ...patchData
+        }
+      };
+
+      const response = await this.purePatch<JobPatchResponse>('JobPatchRequest', payload);
+      
+      if (!response.success) {
+        return response;
+      }
+
+      if (!response.data) {
+        return { success: false, error: 'No job patch response received' };
+      }
+
+      // Clear cache since we updated the job
+      cacheManager.delStartWith(`job-${jobId}`);
+      cacheManager.delStartWith('job-');
+
+      return {
+        success: true,
+        data: {
+          jobId: response.data.Id,
+          jobName: response.data.JobName,
+          message: `Job ${response.data.Id} (${response.data.JobName}) updated successfully`
+        }
+      };
+    } catch (error) {
+      console.error('Error patching job:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }

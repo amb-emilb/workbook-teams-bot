@@ -38,6 +38,8 @@ export interface DataQualityMetrics {
 
 export interface DatabaseOverview {
   totalResources: number;
+  activeResources: number;
+  inactiveResources: number;
   resourceBreakdown: Array<{
     type: string;
     count: number;
@@ -492,6 +494,36 @@ export function createDatabaseOverviewCard(overview: DatabaseOverview): Attachme
         weight: 'Bolder',
         size: 'Medium',
         spacing: 'Medium'
+      },
+      {
+        type: 'ColumnSet',
+        spacing: 'Small',
+        columns: [
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              {
+                type: 'TextBlock',
+                text: `✅ Active: ${overview.activeResources.toLocaleString()}`,
+                color: 'Good',
+                weight: 'Bolder'
+              }
+            ]
+          },
+          {
+            type: 'Column',
+            width: 'stretch',
+            items: [
+              {
+                type: 'TextBlock',
+                text: `⏸️ Inactive: ${overview.inactiveResources.toLocaleString()}`,
+                color: 'Warning',
+                weight: 'Bolder'
+              }
+            ]
+          }
+        ]
       },
       {
         type: 'TextBlock',
@@ -1009,41 +1041,54 @@ export class EnhancedResponseParser {
    * Parse database overview from response text
    */
   static parseDatabaseOverview(text: string): DatabaseOverview | null {
-    const totalMatch = text.match(/total.*?(\d+)/i);
+    console.log('[ADAPTIVE CARDS] Parsing database overview from text:', text.substring(0, 300));
+    
+    // Look for the specific format from getContactStatsTool
+    const totalMatch = text.match(/Total:\s*(\d+)\s*active,\s*(\d+)\s*inactive\s*\((\d+)\s*total\)/i);
+    if (!totalMatch) {
+      console.log('[ADAPTIVE CARDS] Could not find total pattern in text');
+      return null;
+    }
+    
+    const totalActive = parseInt(totalMatch[1]);
+    const totalInactive = parseInt(totalMatch[2]);
+    const totalResources = parseInt(totalMatch[3]);
+    
     const breakdown: DatabaseOverview['resourceBreakdown'] = [];
     
-    // Look for resource type patterns
-    const lines = text.split('\n');
-    for (const line of lines) {
-      const typeMatch = line.match(/(?:type\s+)?(\w+).*?:\s*(\d+)/i);
-      if (typeMatch) {
-        const typeName = typeMatch[1];
-        const count = parseInt(typeMatch[2]);
-        const activeMatch = line.match(/active:\s*(\d+)/i);
-        const inactiveMatch = line.match(/inactive:\s*(\d+)/i);
+    // Look for specific resource type patterns from getContactStatsTool message
+    const patterns = [
+      { regex: /(\d+)\s*active employees\s*\((\d+)\s*inactive\)/, type: 'Employees' },
+      { regex: /(\d+)\s*active clients\s*\((\d+)\s*inactive\)/, type: 'Clients' },
+      { regex: /(\d+)\s*active prospects\s*\((\d+)\s*inactive\)/, type: 'Prospects' },
+      { regex: /(\d+)\s*active suppliers\s*\((\d+)\s*inactive\)/, type: 'Suppliers' },
+      { regex: /(\d+)\s*active contact persons\s*\((\d+)\s*inactive\)/, type: 'Contact Persons' }
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern.regex);
+      if (match) {
+        const active = parseInt(match[1]);
+        const inactive = parseInt(match[2]);
+        const total = active + inactive;
+        const percentage = Math.round((total / totalResources) * 100);
         
         breakdown.push({
-          type: typeName,
-          count: count,
-          percentage: 0, // Will calculate after getting all
-          active: activeMatch ? parseInt(activeMatch[1]) : count,
-          inactive: inactiveMatch ? parseInt(inactiveMatch[1]) : 0
+          type: pattern.type,
+          count: total,
+          percentage: percentage,
+          active: active,
+          inactive: inactive
         });
       }
     }
     
-    // Calculate percentages
-    const total = breakdown.reduce((sum, item) => sum + item.count, 0) || 
-                  (totalMatch ? parseInt(totalMatch[1]) : 0);
+    console.log('[ADAPTIVE CARDS] Parsed breakdown:', breakdown);
     
-    if (total > 0) {
-      breakdown.forEach(item => {
-        item.percentage = Math.round((item.count / total) * 100);
-      });
-    }
-    
-    return breakdown.length > 0 || total > 0 ? {
-      totalResources: total,
+    return breakdown.length > 0 ? {
+      totalResources: totalResources,
+      activeResources: totalActive,
+      inactiveResources: totalInactive,
       resourceBreakdown: breakdown,
       lastUpdated: new Date().toLocaleString()
     } : null;

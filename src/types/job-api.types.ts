@@ -254,3 +254,332 @@ export interface MappedJobData {
   companyDepartmentId: number;
   costingCodeId: number;
 }
+
+// New endpoints from job-endpoints-2.md
+
+// TagsRequest response
+export interface Tag {
+  Id: number;
+  TagId: number;
+  TagName: string;
+  Active: boolean;
+  CreateDate: string;
+  UpdateResourceId: number;
+  UpdateDate: string;
+  Color: string;
+  Internal: boolean;
+}
+
+// InvoicesRequest response
+export interface Invoice {
+  Id: number;
+  Number: string;
+  TypeId: number;
+  Date: string;
+  JobId: number;
+  ResponsibleResourceId: number;
+  Title: string;
+  Headline: string;
+  DebtorId: number;
+  DebtorLabel: string;
+  DebtorAttention: string;
+  VATPercent: number;
+  LanguageId: number;
+  PrintDate: string;
+  PrintResourceId: number;
+  DebtorCompanyNumber: string;
+  ShowPhases: number;
+  ShowPhasePrice: boolean;
+  ShowPhaseNumber: boolean;
+  ShowLines: number;
+  ShowLinePrice: boolean;
+  ShowLineHours: boolean;
+  ShowLineHoursPrice: boolean;
+  ShowDividingLines: boolean;
+  DoIndentLines: boolean;
+  ShowDecimals: boolean;
+  ShowCurrency: boolean;
+  ShowVATPercent: boolean;
+  AmountNet: number;
+  AmountVat: number;
+  AmountTot: number;
+  JournalNumber: number;
+  PayTermId: number;
+  DueDate: string;
+  CreditNoteCloseJob: boolean;
+  MainInvoice: boolean;
+  AmountNetCurrency: number;
+  AmountVatCurrency: number;
+  AmountTotalCurrency: number;
+  PostDate: string;
+  AmountNetVatAttract: number;
+  AmountNetVatAttractCurrency: number;
+  PayModeId: number;
+  PayModeIdentificationNo: string;
+  PayModeCheckDigit: number;
+  PayModeIdentificationLine: string;
+  PayModeAccountNo: number;
+  PayModeDebtorAnnotation: string;
+  CompanyName: string;
+  UpdateResId: number;
+  UpdateDate: string;
+  UpdateType: number;
+  eTransferDate: string;
+  UseActGrouping: boolean;
+  Status: number;
+  PartialInvoiceExpPostIsApproved: boolean;
+  ArpVatId: number;
+  DeliveryArpAccId: number;
+  DeliveryDebtorAttention: string;
+  ReverseCharge: boolean;
+  PayTermText: string;
+  ReportLayoutId: number;
+  CurrencyId: number;
+  CurrencyRate: number;
+  CurrencyDate: string;
+  DoNotCapitalize: boolean;
+  SalesDate: string;
+  NumberNumeric: number;
+  SubInvoice: boolean;
+  EliminatePartInvoice: boolean;
+  ReportWatermarkId: number;
+  PaymentStatusForSystemsWithoutFinance: number;
+  ShowPartInvoiceExpenseDetails: boolean;
+  IncludeVouchers: number;
+  Internal: boolean;
+  TimeOfSupplyOnLines: boolean;
+}
+
+// InvoicePaymentStatusRequest response
+export interface InvoicePaymentStatus {
+  Id: number;
+  CompanyId: number;
+  JobId: number;
+  PaymentStatusId: number;
+  PaymentStatusText: string;
+  PaymentStatus: string;
+  Amount: number;
+  IsoCode: string;
+  LatestPaidDate: string;
+}
+
+// ExpenditureSummaryHoursAndCostRequest response
+export interface ExpenditureSummary {
+  Id: number;
+  JobId: number;
+  RowType: number;
+  GroupNumber: number;
+  GroupName: string;
+  SortOrder: number;
+  CurrencyId: number;
+  CurrencyCode: string;
+  ActivityId?: number;
+  Description: string;
+  QuotedPrice?: number;
+  ActualHours?: number;
+  ActualCosts?: number;
+  ActualPrice?: number;
+  Billed?: number;
+  UnBilled?: number;
+}
+
+// Mapped versions for camelCase compatibility
+export interface MappedTag {
+  id: number;
+  tagId: number;
+  tagName: string;
+  active: boolean;
+  createDate: string;
+  updateResourceId: number;
+  updateDate: string;
+  color: string;
+  internal: boolean;
+}
+
+export interface MappedInvoice {
+  id: number;
+  number: string;
+  typeId: number;
+  date: string;
+  jobId: number;
+  responsibleResourceId: number;
+  title: string;
+  headline: string;
+  debtorId: number;
+  debtorLabel: string;
+  amountNet: number;
+  amountVat: number;
+  amountTot: number;
+  dueDate: string;
+  paymentStatus: number;
+  currencyId: number;
+  companyName: string;
+}
+
+export interface MappedInvoicePaymentStatus {
+  id: number;
+  companyId: number;
+  jobId: number;
+  paymentStatusId: number;
+  paymentStatusText: string;
+  paymentStatus: string;
+  amount: number;
+  isoCode: string;
+  latestPaidDate: string;
+}
+
+export interface MappedExpenditureSummary {
+  id: number;
+  jobId: number;
+  rowType: number;
+  groupNumber: number;
+  groupName: string;
+  sortOrder: number;
+  currencyId: number;
+  currencyCode: string;
+  activityId?: number;
+  description: string;
+  quotedPrice?: number;
+  actualHours?: number;
+  actualCosts?: number;
+  actualPrice?: number;
+  billed?: number;
+  unBilled?: number;
+}
+
+// New endpoints from job-endpoints-3.md
+
+// ExpenditureSummaryDepartmentProfitSplitVisualizationRequest response
+export interface DepartmentProfitSplit {
+  Id: number;
+  RecordType: number; // 1 = department data, 2 = total
+  DepartmentType?: string; // "Owner" or "Delivery"
+  DepartmentName?: string; // "SEO", "AdWords", "Search & Social", "Total"
+  DepartmentId?: number;
+  CurrencyId: number;
+  CurrencyCode: string;
+  PriceQuoteShare?: number;
+  PriceQuoteSharePercentage?: number;
+  TaskAmount?: number;
+  TaskPercentage?: number;
+  TimeShare?: number;
+  TimePercentage?: number;
+  InvoiceShare?: number;
+  InvoicePercentage?: number;
+}
+
+// JobTypesRequest response
+export interface JobType {
+  Id: number;
+  Name: string; // "AdHoc", "Annonce", "Klippekort", etc.
+  Active: boolean;
+  RetainerJob: boolean;
+  UpdateDate?: string;
+  UpdatePriceQuote: boolean;
+}
+
+// TimeEntryTaskResourceSumVisualizationRequest response
+export interface TimeEntryTaskResourceSum {
+  Id: number;
+  ResourceId: number;
+  TaskId: number;
+  HoursTimeRegistration: number;
+  Done: boolean;
+  HasTimeRegistration: boolean;
+}
+
+// CapacityVisualizationMultiRequest response
+export interface CapacityVisualization {
+  ReferenceId: number;
+  Id: number;
+  ResourceId: number;
+  DayDate: string;
+  Capacity: number;
+  CapacityCurrent: number;
+  HoursBooked: number;
+  HoursBookedCurrent: number;
+  TotalHoursBooked: number;
+  TotalHoursBookedCurrent: number;
+  TotalApprovedHoursBooked: number;
+  TotalApprovedHoursBookedCurrent: number;
+  HoursNormal: number;
+  BookingLevel: number; // 3 = available, other values indicate booking status
+  DayType: number; // 1 = normal day
+  HoursHoliday: number;
+}
+
+// JobPatchRequest payload interface
+export interface JobPatchPayload {
+  Patch: Record<string, unknown>; // Dynamic patch object for any job field
+}
+
+// DepartmentsRequest response
+export interface Department {
+  Id: number;
+  CompanyId: number;
+  Name: string;
+  Active: boolean;
+}
+
+export interface MappedDepartment {
+  id: number;
+  companyId: number;
+  name: string;
+  active: boolean;
+}
+
+// Mapped versions for camelCase compatibility
+export interface MappedDepartmentProfitSplit {
+  id: number;
+  recordType: number;
+  departmentType?: string;
+  departmentName?: string;
+  departmentId?: number;
+  currencyId: number;
+  currencyCode: string;
+  priceQuoteShare?: number;
+  priceQuoteSharePercentage?: number;
+  taskAmount?: number;
+  taskPercentage?: number;
+  timeShare?: number;
+  timePercentage?: number;
+  invoiceShare?: number;
+  invoicePercentage?: number;
+}
+
+export interface MappedJobType {
+  id: number;
+  name: string;
+  active: boolean;
+  retainerJob: boolean;
+  updateDate?: string;
+  updatePriceQuote: boolean;
+}
+
+export interface MappedTimeEntryTaskResourceSum {
+  id: number;
+  resourceId: number;
+  taskId: number;
+  hoursTimeRegistration: number;
+  done: boolean;
+  hasTimeRegistration: boolean;
+}
+
+export interface MappedCapacityVisualization {
+  referenceId: number;
+  id: number;
+  resourceId: number;
+  dayDate: string;
+  capacity: number;
+  capacityCurrent: number;
+  hoursBooked: number;
+  hoursBookedCurrent: number;
+  totalHoursBooked: number;
+  totalHoursBookedCurrent: number;
+  totalApprovedHoursBooked: number;
+  totalApprovedHoursBookedCurrent: number;
+  hoursNormal: number;
+  bookingLevel: number;
+  dayType: number;
+  hoursHoliday: number;
+}

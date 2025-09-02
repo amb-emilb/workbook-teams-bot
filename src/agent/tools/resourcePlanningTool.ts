@@ -1,6 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { WorkbookClient } from '../../services/index.js';
+import { MappedCapacityVisualization } from '../../types/job-api.types.js';
 
 /**
  * Create resource planning tool for capacity planning and resource allocation
@@ -20,9 +21,8 @@ export function createResourcePlanningTool(workbookClient: WorkbookClient) {
     
     DO NOT USE for:
     - Job creation or management (use jobManagementTool instead)
-    - Time entry tracking (use timeTrackingTool instead)
-    - Task-level scheduling (use projectPlanningTool instead)
     - Financial cost analysis (use jobFinancialsTool instead)
+    - Time entry tracking or task scheduling (use jobManagementTool instead)
     
     This tool focuses on strategic resource management and capacity optimization.`,
 
@@ -323,7 +323,7 @@ export function createResourcePlanningTool(workbookClient: WorkbookClient) {
               utilizationRate: parseFloat(utilizationRate.toFixed(1)),
               availableHours: availableHours,
               allocatedHours: actualHours,
-              skillMatch: skillRequired ? Math.floor(Math.random() * 40) + 60 : undefined // Simulated skill match 60-100%
+              skillMatch: skillRequired ? undefined : undefined // Skill matching would need dedicated skill assessment API
             };
           });
 
@@ -469,69 +469,205 @@ export function createResourcePlanningTool(workbookClient: WorkbookClient) {
         }
 
         case 'get_availability': {
-          console.log(`📅 Getting availability for ${resourceId ? `resource ${resourceId}` : 'all resources'}`);
+          console.log(`📅 Getting availability using real CapacityVisualizationMultiRequest API for ${resourceId ? `resource ${resourceId}` : 'all resources'}`);
             
+          if (!jobId) {
+            return {
+              success: false,
+              operation: 'get_availability',
+              message: 'Job ID is required to get capacity visualization references for resource availability'
+            };
+          }
+
+          // Get team members to understand resource/task relationships
+          const teamResponse = await workbookClient.jobs.getJobTeam(jobId);
+          if (!teamResponse.success || !teamResponse.data || teamResponse.data.length === 0) {
+            return {
+              success: false,
+              operation: 'get_availability',
+              message: `❌ Failed to get team data for capacity analysis: ${teamResponse.error || 'No team members found'}`
+            };
+          }
+
+          // Get task data for the job to create capacity references
+          const tasksResponse = await workbookClient.jobs.getJobTasks(jobId);
+          if (!tasksResponse.success || !tasksResponse.data || !Array.isArray(tasksResponse.data) || tasksResponse.data.length === 0) {
+            return {
+              success: false,
+              operation: 'get_availability',
+              message: `❌ Failed to get task data for capacity analysis: ${'error' in tasksResponse ? tasksResponse.error : 'No tasks found'}`
+            };
+          }
+
+          const teamMembers = teamResponse.data as Array<{
+            resourceId: number;
+            resourceName: string;
+          }>;
+          const tasks = tasksResponse.data as Array<{
+            id: number;
+            taskName: string;
+          }>;
+
+          // Create references for capacity visualization (resource + task combinations)
+          const references = teamMembers.map(member => ({
+            resourceId: member.resourceId,
+            taskId: tasks[0]?.id || jobId // Use first task or job ID as fallback
+          }));
+
+          // Filter to single resource if requested
+          let filteredReferences = references;
           if (resourceId) {
-            // Single resource availability
+            filteredReferences = references.filter(ref => ref.resourceId === resourceId);
+            if (filteredReferences.length === 0) {
+              return {
+                success: false,
+                operation: 'get_availability',
+                message: `❌ Resource ${resourceId} not found in job ${jobId} team`
+              };
+            }
+          }
+
+          console.log(`🔍 Fetching capacity data for ${filteredReferences.length} resource(s) using real API`);
+          
+          // Use the new CapacityVisualizationMultiRequest API
+          const capacityResponse = await workbookClient.jobs.getCapacityVisualization(filteredReferences, {
+            includeAbsence: true,
+            includeCurrentHours: true,
+            includeEmptyCapacity: true,
+            periodType: 1
+          });
+
+          if (!capacityResponse.success) {
+            return {
+              success: false,
+              operation: 'get_availability',
+              message: `❌ Failed to get capacity data: ${'error' in capacityResponse ? capacityResponse.error : 'Unknown error'}`
+            };
+          }
+
+          if (!capacityResponse.data || capacityResponse.data.length === 0) {
+            return {
+              success: false,
+              operation: 'get_availability',
+              message: '❌ No capacity data returned from API'
+            };
+          }
+
+          const capacityData = capacityResponse.data as MappedCapacityVisualization[];
+
+          if (resourceId) {
+            // Single resource availability from real API data
+            const resourceCapacityData = capacityData.filter(cap => cap.resourceId === resourceId);
+            if (resourceCapacityData.length === 0) {
+              return {
+                success: false,
+                operation: 'get_availability',
+                message: `❌ No capacity data found for resource ${resourceId}`
+              };
+            }
+
+            // Aggregate capacity data across days
+            const totalCapacity = resourceCapacityData.reduce((sum, cap) => sum + cap.capacity, 0);
+            const totalBooked = resourceCapacityData.reduce((sum, cap) => sum + cap.hoursBooked, 0);
+            const totalAvailable = totalCapacity - totalBooked;
+            const utilizationRate = totalCapacity > 0 ? (totalBooked / totalCapacity) * 100 : 0;
+
+            // Find resource name from team data
+            const resourceInfo = teamMembers.find(member => member.resourceId === resourceId);
+            const resourceName = resourceInfo?.resourceName || `Resource ${resourceId}`;
+
+            // Check for conflicts (overbooked days)
+            const conflicts = resourceCapacityData
+              .filter(cap => cap.hoursBooked > cap.capacity && cap.capacity > 0)
+              .map(cap => ({
+                jobId: jobId,
+                jobName: `Job ${jobId}`,
+                conflictHours: cap.hoursBooked - cap.capacity,
+                conflictDate: cap.dayDate
+              }));
+
             return {
               success: true,
               operation: 'get_availability',
-              message: `✅ Availability retrieved for resource ${resourceId}`,
+              message: `✅ Real availability data retrieved for resource ${resourceId} (${resourceName})`,
               resource: {
                 id: resourceId,
-                name: 'Jacob Kildebogaard',
-                department: 'Project Management',
+                name: resourceName,
+                department: 'Unknown', // Would need ResourceService to get department details
                 capacity: {
-                  totalHours: 168,
-                  availableHours: 134.4,
-                  allocatedHours: 120,
-                  utilizationRate: 89.3
+                  totalHours: totalCapacity,
+                  availableHours: Math.max(0, totalAvailable),
+                  allocatedHours: totalBooked,
+                  utilizationRate: parseFloat(utilizationRate.toFixed(1))
                 },
                 availability: {
-                  currentWeek: 8,
-                  nextWeek: 15,
-                  nextMonth: 45,
-                  conflicts: [
-                    {
-                      jobId: 11133,
-                      jobName: 'Website Redesign Project',
-                      conflictHours: 10,
-                      conflictDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-                    }
-                  ]
+                  currentWeek: Math.ceil(totalAvailable / 7), // Estimate weekly availability
+                  nextWeek: Math.ceil(totalAvailable / 7),
+                  nextMonth: totalAvailable,
+                  conflicts: conflicts
                 }
               }
             };
           } else {
-            // Multi-resource availability summary
+            // Multi-resource availability summary from real API data
+            const resourceSummaries = new Map<number, {
+              resourceId: number;
+              resourceName: string;
+              totalCapacity: number;
+              totalBooked: number;
+            }>();
+
+            // Aggregate data by resource
+            capacityData.forEach(cap => {
+              if (!resourceSummaries.has(cap.resourceId)) {
+                const resourceInfo = teamMembers.find(member => member.resourceId === cap.resourceId);
+                resourceSummaries.set(cap.resourceId, {
+                  resourceId: cap.resourceId,
+                  resourceName: resourceInfo?.resourceName || `Resource ${cap.resourceId}`,
+                  totalCapacity: 0,
+                  totalBooked: 0
+                });
+              }
+              
+              const summary = resourceSummaries.get(cap.resourceId)!;
+              summary.totalCapacity += cap.capacity;
+              summary.totalBooked += cap.hoursBooked;
+            });
+
+            const resources = Array.from(resourceSummaries.values()).map(summary => {
+              const availableHours = Math.max(0, summary.totalCapacity - summary.totalBooked);
+              const utilizationRate = summary.totalCapacity > 0 ? (summary.totalBooked / summary.totalCapacity) * 100 : 0;
+
+              return {
+                id: summary.resourceId,
+                name: summary.resourceName,
+                department: 'Unknown',
+                utilizationRate: parseFloat(utilizationRate.toFixed(1)),
+                availableHours: availableHours,
+                allocatedHours: summary.totalBooked
+              };
+            }).slice(0, limit);
+
+            // Calculate summary statistics
+            const averageUtilization = resources.length > 0 
+              ? resources.reduce((sum, r) => sum + r.utilizationRate, 0) / resources.length 
+              : 0;
+            const overAllocated = resources.filter(r => r.utilizationRate > 100).length;
+            const underUtilized = resources.filter(r => r.utilizationRate < 80).length;
+            const totalCapacityGap = resources.reduce((sum, r) => sum + r.availableHours, 0) - 
+                                  resources.reduce((sum, r) => sum + r.allocatedHours, 0);
+
             return {
               success: true,
               operation: 'get_availability',
-              message: `✅ Availability summary for ${limit} resources`,
-              resources: [
-                {
-                  id: 15,
-                  name: 'Anders Dohrn',
-                  department: 'Development',
-                  utilizationRate: 95.2,
-                  availableHours: 20,
-                  allocatedHours: 140
-                },
-                {
-                  id: 27,
-                  name: 'Jacob Kildebogaard',
-                  department: 'Project Management',
-                  utilizationRate: 89.3,
-                  availableHours: 14,
-                  allocatedHours: 120
-                }
-              ].slice(0, limit),
+              message: `✅ Real availability data retrieved for ${resources.length} resources from CapacityVisualizationMultiRequest API`,
+              resources: resources,
               summary: {
-                totalResources: 2,
-                averageUtilization: 92.25,
-                overAllocatedResources: 1,
-                underUtilizedResources: 0,
-                capacityGap: -10,
+                totalResources: resources.length,
+                averageUtilization: parseFloat(averageUtilization.toFixed(1)),
+                overAllocatedResources: overAllocated,
+                underUtilizedResources: underUtilized,
+                capacityGap: totalCapacityGap,
                 periodCovered: {
                   from: startDate || new Date().toISOString(),
                   to: endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
